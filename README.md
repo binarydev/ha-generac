@@ -11,7 +11,21 @@
 
 ![example][exampleimg]
 
-## Installation
+## Installation (with HACS)
+
+1. In Home Assistant, go to HACS -> Integrations
+2. On the top right, click the 3 dots and select "Custom repositories"
+3. In the popup, enter `https://github.com/binarydev/ha-generac` into the Repository field, and select `Integration` for the Category field
+4. Click the Add button
+5. Restart Home Assistant
+6. Once Home Assistant comes back online, go to Settings -> Integrations
+7. Click the `Add Integration` button
+8. Search the list for `generac` and select it
+9. Enter the credentials you use to login for https://app.mobilelinkgen.com/ and submit the form
+10. The integration should initialize and begin pulling your device information within seconds 
+
+
+## Installation (without HACS)
 
 1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
 2. If you do not have a `custom_components` directory (folder) there, you need to create it.
