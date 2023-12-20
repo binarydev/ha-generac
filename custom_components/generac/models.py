@@ -115,7 +115,7 @@ class Apparatus:
             signalStrength: Optional[str]
             batteryLevel: Optional[str]
 
-        value: Optional[Value | list]
+        value: Optional[Value | list | str | int]
         type: Optional[int]
 
     properties: Optional[list[Property]] = None
