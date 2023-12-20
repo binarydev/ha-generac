@@ -210,7 +210,7 @@ class LastSeenSensor(GeneracEntity, SensorEntity):
         if self.aparatus_detail.lastSeen is None:
             return None
         return datetime.strptime(
-            self.aparatus_detail.lastSeen, "%Y-%m-%dT%H:%M:%S.%f%z"
+            self.aparatus_detail.lastSeen, "%Y-%m-%dT%H:%M:%S%z"
         )
 
 
@@ -230,7 +230,7 @@ class ConnectionTimeSensor(GeneracEntity, SensorEntity):
         if self.aparatus_detail.connectionTimestamp is None:
             return None
         return datetime.strptime(
-            self.aparatus_detail.connectionTimestamp, "%Y-%m-%dT%H:%M:%S.%f%z"
+            self.aparatus_detail.connectionTimestamp, "%Y-%m-%dT%H:%M:%S%z"
         )
 
 
