@@ -71,6 +71,8 @@ This project was generated from [@oncleben31](https://github.com/oncleben31)'s [
 
 Code template was mainly taken from [@Ludeeus](https://github.com/ludeeus)'s [integration_blueprint][integration_blueprint] template
 
+Forked from the original implementation created by [@bentekkie](https://github.com/bentekkie/ha-generac)
+
 ---
 
 [integration_blueprint]: https://github.com/custom-components/integration_blueprint
