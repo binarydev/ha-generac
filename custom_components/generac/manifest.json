@@ -1,12 +1,12 @@
 {
   "domain": "generac",
   "name": "Generac Generators",
-  "codeowners": ["@bentekkie"],
+  "codeowners": ["@binarydev"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/bentekkie/ha-generac",
+  "documentation": "https://github.com/binarydev/ha-generac",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/bentekkie/ha-generac/issues",
+  "issue_tracker": "https://github.com/binarydev/ha-generac/issues",
   "requirements": ["beautifulsoup4==4.12.2", "dacite==1.8.1"],
   "version": "0.0.11"
 }

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "generac",
-        "description": "Si vous avez besoin d'aide pour la configuration, regardez ici: https://github.com/bentekkie/ha-generac",
+        "description": "Si vous avez besoin d'aide pour la configuration, regardez ici: https://github.com/binarydev/ha-generac",
         "data": {
           "username": "Identifiant",
           "password": "Mot de Passe"

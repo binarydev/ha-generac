@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "generac",
-        "description": "If you need help with the configuration have a look here: https://github.com/bentekkie/ha-generac",
+        "description": "If you need help with the configuration have a look here: https://github.com/binarydev/ha-generac",
         "data": {
           "username": "Username",
           "password": "Password"
@@ -12,7 +12,7 @@
     },
     "error": {
       "auth": "Username/Password is wrong.",
-      "internal": "Internal Error, file an issue at https://github.com/bentekkie/ha-generac."
+      "internal": "Internal Error, file an issue at https://github.com/binarydev/ha-generac."
     },
     "abort": {
       "single_instance_allowed": "Only a single instance is allowed."

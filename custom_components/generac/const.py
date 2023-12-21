@@ -10,7 +10,7 @@ ATTRIBUTION = (
     "This is reversed engineered. Heavily inspired by "
     "https://github.com/digitaldan/openhab-addons/blob/generac-2.0/bundles/org.openhab.binding.generacmobilelink/README.md"
 )
-ISSUE_URL = "https://github.com/bentekkie/ha-generac/issues"
+ISSUE_URL = "https://github.com/binarydev/ha-generac/issues"
 
 # Platforms
 BINARY_SENSOR = "binary_sensor"
