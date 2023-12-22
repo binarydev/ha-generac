@@ -18,13 +18,16 @@
 3. On the top right, click the 3 dots and select "Custom repositories"
 4. If you've previously installed this integration, make sure you delete `https://github.com/bentekkie/ha-generac` from the list of existing repositories (and delete the integration as mentioned in Step 1!)
 5. In the form at the bottom of the popup, enter `https://github.com/binarydev/ha-generac` into the Repository field, and select `Integration` in the Category dropdown field
-6. Click the Add button
-7. Restart Home Assistant
-8. Once Home Assistant comes back online, go to Settings -> Integrations
-9. Click the `Add Integration` button
-10. Search the list for `generac` and select it
-11. Enter the credentials you use to login for https://app.mobilelinkgen.com/ and submit the form
-12. The integration should initialize and begin pulling your device information within seconds 
+6. Click the Add button and close the popup
+7. On the HACS -> Integrations page, click the `Explore & Download Repositories` button
+8. Search the list for `generac` and select it to open the details page
+9. On the bottom right, click the `Download` button
+10. Restart Home Assistant (not the quick reload option)
+11. Once Home Assistant comes back online, go to Settings -> Integrations
+12. Click the `Add Integration` button
+13. Search the list for `generac` and select it
+14. Enter the credentials you use to login for https://app.mobilelinkgen.com/ and submit the form
+15. The integration should initialize and begin pulling your device information within seconds 
 
 
 ## Installation (without HACS)
