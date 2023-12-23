@@ -23,8 +23,10 @@
       "user": {
         "data": {
           "binary_sensor": "Binary sensor enabled",
+          "image": "Image enabled",
           "sensor": "Sensor enabled",
-          "switch": "Switch enabled"
+          "switch": "Switch enabled",
+          "weather": "Weather sensor enabled"
         }
       }
     }

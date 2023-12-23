@@ -22,8 +22,10 @@
       "user": {
         "data": {
           "binary_sensor": "Capteur binaire activé",
+          "image": "Image activé",
           "sensor": "Capteur activé",
-          "switch": "Interrupteur activé"
+          "switch": "Interrupteur activé",
+          "weather": "Capteur météo activé"
         }
       }
     }

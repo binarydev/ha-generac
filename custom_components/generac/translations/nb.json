@@ -22,8 +22,10 @@
       "user": {
         "data": {
           "binary_sensor": "Binær sensor aktivert",
+          "image": "Bilde aktivert",
           "sensor": "Sensor aktivert",
-          "switch": "Bryter aktivert"
+          "switch": "Bryter aktivert",
+          "weather": "Værsensor aktivert"
         }
       }
     }
