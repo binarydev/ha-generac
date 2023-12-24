@@ -25,8 +25,8 @@ async def async_setup_entry(
     data = coordinator.data
     if isinstance(data, dict):
         async_add_entities(
-            sensor(coordinator, entry, generator_id, item)
-            for generator_id, item in data.items()
+            sensor(coordinator, entry, device_id, item)
+            for device_id, item in data.items()
             for sensor in sensors(item)
         )
 
@@ -87,7 +87,7 @@ class StatusSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_status"
+        return f"{DEFAULT_NAME}_{self.device_id}_status"
 
     @property
     def native_value(self):
@@ -114,7 +114,7 @@ class DeviceTypeSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_device_type"
+        return f"{DEFAULT_NAME}_{self.device_id}_device_type"
 
     @property
     def native_value(self):
@@ -141,7 +141,7 @@ class RunTimeSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_run_time"
+        return f"{DEFAULT_NAME}_{self.device_id}_run_time"
 
     @property
     def native_value(self):
@@ -166,7 +166,7 @@ class ProtectionTimeSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_protection_time"
+        return f"{DEFAULT_NAME}_{self.device_id}_protection_time"
 
     @property
     def native_value(self):
@@ -190,7 +190,7 @@ class ActivationDateSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_activation_date"
+        return f"{DEFAULT_NAME}_{self.device_id}_activation_date"
 
     @property
     def native_value(self):
@@ -209,7 +209,7 @@ class LastSeenSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_last_seen"
+        return f"{DEFAULT_NAME}_{self.device_id}_last_seen"
 
     @property
     def native_value(self):
@@ -228,7 +228,7 @@ class ConnectionTimeSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_connection_time"
+        return f"{DEFAULT_NAME}_{self.device_id}_connection_time"
 
     @property
     def native_value(self):
@@ -248,7 +248,7 @@ class BatteryVoltageSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_battery_voltage"
+        return f"{DEFAULT_NAME}_{self.device_id}_battery_voltage"
 
     @property
     def native_value(self):
@@ -272,7 +272,7 @@ class OutdoorTemperatureSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_outdoor_temperature"
+        return f"{DEFAULT_NAME}_{self.device_id}_outdoor_temperature"
 
     @property
     def native_unit_of_measurement(self):
@@ -302,7 +302,7 @@ class SerialNumberSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_serial_number"
+        return f"{DEFAULT_NAME}_{self.device_id}_serial_number"
 
     @property
     def native_value(self):
@@ -314,7 +314,7 @@ class ModelNumberSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_model_number"
+        return f"{DEFAULT_NAME}_{self.device_id}_model_number"
 
     @property
     def native_value(self):
@@ -326,7 +326,7 @@ class DeviceSsidSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_device_ssid"
+        return f"{DEFAULT_NAME}_{self.device_id}_device_ssid"
 
     @property
     def native_value(self):
@@ -338,7 +338,7 @@ class StatusLabelSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_status_label"
+        return f"{DEFAULT_NAME}_{self.device_id}_status_label"
 
     @property
     def native_value(self):
@@ -350,7 +350,7 @@ class StatusTextSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_status_text"
+        return f"{DEFAULT_NAME}_{self.device_id}_status_text"
 
     @property
     def native_value(self):
@@ -362,7 +362,7 @@ class AddressSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_address"
+        return f"{DEFAULT_NAME}_{self.device_id}_address"
 
     @property
     def native_value(self):
@@ -374,7 +374,7 @@ class DealerNameSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_dealer_name"
+        return f"{DEFAULT_NAME}_{self.device_id}_dealer_name"
 
     @property
     def native_value(self):
@@ -386,7 +386,7 @@ class DealerEmailSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_dealer_email"
+        return f"{DEFAULT_NAME}_{self.device_id}_dealer_email"
 
     @property
     def native_value(self):
@@ -398,7 +398,7 @@ class DealerPhoneSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_dealer_phone"
+        return f"{DEFAULT_NAME}_{self.device_id}_dealer_phone"
 
     @property
     def native_value(self):
@@ -410,7 +410,7 @@ class PanelIDSensor(GeneracEntity, SensorEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_panel_id"
+        return f"{DEFAULT_NAME}_{self.device_id}_panel_id"
 
     @property
     def native_value(self):
@@ -426,7 +426,7 @@ class PanelIDSensor(GeneracEntity, SensorEntity):
 #     @property
 #     def name(self):
 #         """Return the name of the sensor."""
-#         return f"{DEFAULT_NAME}_{self.generator_id}_signal_strength"
+#         return f"{DEFAULT_NAME}_{self.device_id}_signal_strength"
 
 #     @property
 #     def native_value(self):

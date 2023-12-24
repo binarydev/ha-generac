@@ -57,9 +57,9 @@ class GeneracApiClient:
         except SessionExpiredException:
             self._logged_in = False
             return await self.async_get_data()
-        return await self.get_generator_data()
+        return await self.get_device_data()
 
-    async def get_generator_data(self):
+    async def get_device_data(self):
         apparatuses = await self.get_endpoint("/v2/Apparatus/list")
         if apparatuses is None:
             _LOGGER.debug("Could not decode apparatuses response")

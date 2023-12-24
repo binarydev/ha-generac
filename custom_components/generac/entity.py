@@ -24,23 +24,23 @@ class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
         self,
         coordinator: GeneracDataUpdateCoordinator,
         config_entry: ConfigEntry,
-        generator_id: str,
+        device_id: str,
         item: Item,
     ):
         super().__init__(coordinator)
         self.config_entry = config_entry
-        self.generator_id = generator_id
+        self.device_id = device_id
         self.item = item
 
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self.config_entry.entry_id}_{self.generator_id}_{self.name}"
+        return f"{self.config_entry.entry_id}_{self.device_id}_{self.name}"
 
     @property
     def device_info(self):
         return DeviceInfo(
-            identifiers={(DOMAIN, self.generator_id)},
+            identifiers={(DOMAIN, self.device_id)},
             name=self.aparatus.name,
             model=self.aparatus.modelNumber,
             manufacturer="Generac",
@@ -51,7 +51,7 @@ class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
         """Return the state attributes."""
         return {
             "attribution": ATTRIBUTION,
-            "id": str(self.generator_id),
+            "id": str(self.device_id),
             "integration": DOMAIN,
         }
 
@@ -78,6 +78,6 @@ class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self.item = self.coordinator.data.get(self.generator_id, _EMPTY_ITEM)
+        self.item = self.coordinator.data.get(self.device_id, _EMPTY_ITEM)
         _LOGGER.debug(f"Updated data for {self.unique_id}: {self.item}")
         self.async_write_ha_state()

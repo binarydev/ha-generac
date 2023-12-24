@@ -21,8 +21,8 @@ async def async_setup_entry(
     data = coordinator.data
     if isinstance(data, dict):
         async_add_entities(
-            sensor(coordinator, entry, generator_id, item)
-            for generator_id, item in data.items()
+            sensor(coordinator, entry, device_id, item)
+            for device_id, item in data.items()
             for sensor in sensors()
         )
 
@@ -42,7 +42,7 @@ class GeneracConnectedSensor(GeneracEntity, BinarySensorEntity):
     @property
     def name(self):
         """Return the name of the binary_sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_is_connected"
+        return f"{DEFAULT_NAME}_{self.device_id}_is_connected"
 
     @property
     def device_class(self):
@@ -61,7 +61,7 @@ class GeneracConnectingSensor(GeneracEntity, BinarySensorEntity):
     @property
     def name(self):
         """Return the name of the binary_sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_is_connecting"
+        return f"{DEFAULT_NAME}_{self.device_id}_is_connecting"
 
     @property
     def device_class(self):
@@ -80,7 +80,7 @@ class GeneracMaintenanceAlertSensor(GeneracEntity, BinarySensorEntity):
     @property
     def name(self):
         """Return the name of the binary_sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_has_maintenance_alert"
+        return f"{DEFAULT_NAME}_{self.device_id}_has_maintenance_alert"
 
     @property
     def device_class(self):
@@ -99,7 +99,7 @@ class GeneracWarningSensor(GeneracEntity, BinarySensorEntity):
     @property
     def name(self):
         """Return the name of the binary_sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_show_warning"
+        return f"{DEFAULT_NAME}_{self.device_id}_show_warning"
 
     @property
     def device_class(self):

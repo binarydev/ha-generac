@@ -22,8 +22,8 @@ async def async_setup_entry(
     data = coordinator.data
     if isinstance(data, dict):
         async_add_entities(
-            HeroImageSensor(coordinator, entry, generator_id, item, hass)
-            for generator_id, item in data.items()
+            HeroImageSensor(coordinator, entry, device_id, item, hass)
+            for device_id, item in data.items()
         )
 
 
@@ -34,18 +34,18 @@ class HeroImageSensor(GeneracEntity, ImageEntity):
         self,
         coordinator: GeneracDataUpdateCoordinator,
         config_entry: ConfigEntry,
-        generator_id: str,
+        device_id: str,
         item: Item,
         hass: HomeAssistant,
     ):
         """Initialize device."""
-        super().__init__(coordinator, config_entry, generator_id, item)
+        super().__init__(coordinator, config_entry, device_id, item)
         ImageEntity.__init__(self, hass)
 
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_hero_image"
+        return f"{DEFAULT_NAME}_{self.device_id}_hero_image"
 
     @property
     def image_url(self):
