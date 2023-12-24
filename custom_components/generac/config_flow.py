@@ -8,10 +8,10 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import GeneracApiClient
 from .api import InvalidCredentialsException
+from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
 from .const import CONF_USERNAME
 from .const import DOMAIN
-from .const import CONF_OPTIONS
 
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)

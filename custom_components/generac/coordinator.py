@@ -7,9 +7,9 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .api import GeneracApiClient
-from .const import DOMAIN
 from .const import CONF_SCAN_INTERVAL
 from .const import DEFAULT_SCAN_INTERVAL
+from .const import DOMAIN
 from .models import Item
 
 
