@@ -12,6 +12,11 @@ ATTRIBUTION = (
 )
 ISSUE_URL = "https://github.com/binarydev/ha-generac/issues"
 
+
+# Defaults
+DEFAULT_NAME = DOMAIN
+DEFAULT_SCAN_INTERVAL = 30
+
 # Platforms
 BINARY_SENSOR = "binary_sensor"
 SENSOR = "sensor"
@@ -19,15 +24,20 @@ WEATHER = "weather"
 IMAGE = "image"
 PLATFORMS = [BINARY_SENSOR, SENSOR, WEATHER, IMAGE]
 
-
 # Configuration and options
 CONF_ENABLED = "enabled"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
+CONF_SCAN_INTERVAL = "scan_interval"
 
-# Defaults
-DEFAULT_NAME = DOMAIN
-
+# Options
+bool_opts = {}
+for p in PLATFORMS:
+    bool_opts[p] = {"type": bool, "default": True}
+CONF_OPTIONS = {
+    **bool_opts,
+    CONF_SCAN_INTERVAL: {"type": int, "default": DEFAULT_SCAN_INTERVAL},
+}
 
 STARTUP_MESSAGE = f"""
 -------------------------------------------------------------------

@@ -6,7 +6,6 @@ https://github.com/bentekkie/generac
 """
 import asyncio
 import logging
-from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -21,7 +20,6 @@ from .const import PLATFORMS
 from .const import STARTUP_MESSAGE
 from .coordinator import GeneracDataUpdateCoordinator
 
-SCAN_INTERVAL = timedelta(seconds=30)
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 

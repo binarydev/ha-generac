@@ -8,10 +8,10 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import GeneracApiClient
 from .api import InvalidCredentialsException
+from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
 from .const import CONF_USERNAME
 from .const import DOMAIN
-from .const import PLATFORMS
 
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -102,8 +102,10 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(x, default=self.options.get(x, True)): bool
-                    for x in sorted(PLATFORMS)
+                    vol.Required(k, default=self.options.get(k, v["default"])): v[
+                        "type"
+                    ]
+                    for k, v in CONF_OPTIONS.items()
                 }
             ),
         )
