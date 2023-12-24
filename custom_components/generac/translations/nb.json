@@ -23,6 +23,7 @@
         "data": {
           "binary_sensor": "Binær sensor aktivert",
           "image": "Bilde aktivert",
+          "scan_interval": "Avstemningsintervall i sekunder",
           "sensor": "Sensor aktivert",
           "switch": "Bryter aktivert",
           "weather": "Værsensor aktivert"

@@ -23,6 +23,7 @@
         "data": {
           "binary_sensor": "Capteur binaire activé",
           "image": "Image activé",
+          "scan_interval": "Intervalle d’interrogation en secondes",
           "sensor": "Capteur activé",
           "switch": "Interrupteur activé",
           "weather": "Capteur météo activé"

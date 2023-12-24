@@ -24,6 +24,7 @@
         "data": {
           "binary_sensor": "Binary sensor enabled",
           "image": "Image enabled",
+          "scan_interval": "Polling interval (seconds)",
           "sensor": "Sensor enabled",
           "switch": "Switch enabled",
           "weather": "Weather sensor enabled"

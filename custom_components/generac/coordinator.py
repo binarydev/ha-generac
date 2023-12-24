@@ -8,9 +8,10 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .api import GeneracApiClient
 from .const import DOMAIN
+from .const import CONF_SCAN_INTERVAL
+from .const import DEFAULT_SCAN_INTERVAL
 from .models import Item
 
-SCAN_INTERVAL = timedelta(seconds=30)
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -27,8 +28,10 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         self._config_entry = config_entry
         self.platforms = []
         self.is_online = False
-
-        super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL)
+        scan_interval = timedelta(
+            seconds=config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        )
+        super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=scan_interval)
 
     async def _async_update_data(self):
         """Update data via library."""
