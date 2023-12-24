@@ -12,6 +12,12 @@ ATTRIBUTION = (
 )
 ISSUE_URL = "https://github.com/binarydev/ha-generac/issues"
 
+# Allowlisted device types
+# 0 = generator
+# 1 = ?
+# 2 = subscription
+# 3 = propane monitor
+ALLOWED_DEVICES = [0, 3]
 
 # Defaults
 DEFAULT_NAME = DOMAIN
@@ -24,7 +30,7 @@ WEATHER = "weather"
 IMAGE = "image"
 PLATFORMS = [BINARY_SENSOR, SENSOR, WEATHER, IMAGE]
 
-# Configuration and options
+# Configuration labels
 CONF_ENABLED = "enabled"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
