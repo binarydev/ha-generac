@@ -27,7 +27,7 @@
 12. Click the `Add Integration` button
 13. Search the list for `generac` and select it
 14. Enter the credentials you use to login for https://app.mobilelinkgen.com/ and submit the form
-15. The integration should initialize and begin pulling your device information within seconds 
+15. The integration should initialize and begin pulling your device information within seconds
 
 ## Installation (without HACS)
 
