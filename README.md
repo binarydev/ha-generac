@@ -29,7 +29,6 @@
 14. Enter the credentials you use to login for https://app.mobilelinkgen.com/ and submit the form
 15. The integration should initialize and begin pulling your device information within seconds 
 
-
 ## Installation (without HACS)
 
 1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
