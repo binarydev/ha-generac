@@ -8,6 +8,7 @@ import aiohttp
 from bs4 import BeautifulSoup
 from dacite import from_dict
 
+from .const import ALLOWED_DEVICES
 from .models import Apparatus
 from .models import ApparatusDetail
 from .models import Item
@@ -70,7 +71,7 @@ class GeneracApiClient:
         data: dict[str, Item] = {}
         for apparatus in apparatuses:
             apparatus = from_dict(Apparatus, apparatus)
-            if apparatus.type != 0:
+            if apparatus.type not in ALLOWED_DEVICES:
                 _LOGGER.debug(
                     "Unknown apparatus type %s %s", apparatus.type, apparatus.name
                 )
