@@ -148,8 +148,9 @@ class ApparatusDetail:
     @dataclass
     class Property:
         name: Optional[str]
-        value: Optional[str | int | float]
-        type: Optional[int]
+        value: Optional[str | int | float | dict]
+        type: Optional[int | str]
+        # likely unnecessary ^
 
     @dataclass
     class ProductInfo:
