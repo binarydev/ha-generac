@@ -15,9 +15,8 @@ ISSUE_URL = "https://github.com/binarydev/ha-generac/issues"
 # Allowlisted device types
 # 0 = generator
 # 1 = ?
-# 2 = subscription
-# 3 = propane monitor
-ALLOWED_DEVICES = [0, 3]
+# 2 = propane tank monitor
+ALLOWED_DEVICES = [0, 2]
 
 # Defaults
 DEFAULT_NAME = DOMAIN
