@@ -24,6 +24,7 @@ async def async_setup_entry(
         async_add_entities(
             HeroImageSensor(coordinator, entry, device_id, item, hass)
             for device_id, item in data.items()
+            if item.apparatusDetail.heroImageUrl is not None
         )
 
 

@@ -36,13 +36,17 @@ def sensors() -> Type[GeneracEntity]:
     ]
 
 
+def sensor_name(self, name_label):
+    return f"{DEFAULT_NAME}_{self.device_id}_{name_label}"
+
+
 class GeneracConnectedSensor(GeneracEntity, BinarySensorEntity):
     """generac binary_sensor class."""
 
     @property
     def name(self):
         """Return the name of the binary_sensor."""
-        return f"{DEFAULT_NAME}_{self.device_id}_is_connected"
+        return sensor_name(self, "is_connected")
 
     @property
     def device_class(self):
@@ -61,7 +65,7 @@ class GeneracConnectingSensor(GeneracEntity, BinarySensorEntity):
     @property
     def name(self):
         """Return the name of the binary_sensor."""
-        return f"{DEFAULT_NAME}_{self.device_id}_is_connecting"
+        return sensor_name(self, "is_connecting")
 
     @property
     def device_class(self):
@@ -80,7 +84,7 @@ class GeneracMaintenanceAlertSensor(GeneracEntity, BinarySensorEntity):
     @property
     def name(self):
         """Return the name of the binary_sensor."""
-        return f"{DEFAULT_NAME}_{self.device_id}_has_maintenance_alert"
+        return sensor_name(self, "has_maintenance_alert")
 
     @property
     def device_class(self):
@@ -99,7 +103,7 @@ class GeneracWarningSensor(GeneracEntity, BinarySensorEntity):
     @property
     def name(self):
         """Return the name of the binary_sensor."""
-        return f"{DEFAULT_NAME}_{self.device_id}_show_warning"
+        return sensor_name(self, "show_warning")
 
     @property
     def device_class(self):
