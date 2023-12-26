@@ -80,16 +80,12 @@ class GeneracApiClient:
             detail_json = await self.get_endpoint(
                 f"/v1/Apparatus/details/{apparatus.apparatusId}"
             )
-
             if detail_json is None:
                 _LOGGER.debug(
                     f"Could not decode respose from /v1/Apparatus/details/{apparatus.apparatusId}"
                 )
                 continue
-            try:
-                detail = from_dict(ApparatusDetail, detail_json)
-            except Exception as ex2:
-                raise ex2
+            detail = from_dict(ApparatusDetail, detail_json)
             data[str(apparatus.apparatusId)] = Item(apparatus, detail)
         return data
 
