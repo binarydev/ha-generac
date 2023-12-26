@@ -150,7 +150,6 @@ class ApparatusDetail:
         name: Optional[str]
         value: Optional[str | int | float | dict]
         type: Optional[int | str]
-        # likely unnecessary ^
 
     @dataclass
     class ProductInfo:
@@ -181,6 +180,7 @@ class ApparatusDetail:
     connectionTimestamp: Optional[str] = None
     address: Optional[Address] = None
     properties: Optional[list[Property]] = None
+    tuProperties: Optional[list[Property]] = None
     subscription: Optional[Subscription] = None
     enrolledInVpp: Optional[bool] = None
     hasActiveVppEvent: Optional[bool] = None
