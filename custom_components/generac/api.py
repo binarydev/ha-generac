@@ -61,100 +61,13 @@ class GeneracApiClient:
         return await self.get_device_data()
 
     async def get_device_data(self):
-        # apparatuses = await self.get_endpoint("/v2/Apparatus/list")
-        # if apparatuses is None:
-        #     _LOGGER.debug("Could not decode apparatuses response")
-        #     return None
-        # if not isinstance(apparatuses, list):
-        #     _LOGGER.error("Expected list from /v2/Apparatus/list got %s", apparatuses)
-        apparatuses = json.loads(
-            """
-                [
-                {
-                "apparatusId":1135681,
-                "serialNumber":null,
-                "name":"500",
-                "type":2,
-                "localizedAddress":"3 some Road, binghamton, NY, 13901",
-                "materialDescription":null,
-                "heroImageUrl":null,
-                "apparatusStatus":0,
-                "isConnected":true,
-                "isConnecting":false,
-                "showWarning":false,
-                "weather":null,
-                "preferredDealerName":null,
-                "preferredDealerPhone":null,
-                "preferredDealerEmail":null,
-                "isDealerManaged":false,
-                "isDealerUnmonitored":false,
-                "modelNumber":null,
-                "panelId":null,
-                "properties":[
-                {
-                "name":"Subscriptions/apparatuses/1135681/SubscriptionsPremium",
-                "value":{
-                "type":2,
-                "status":1,
-                "isLegacy":false,
-                "isDunning":false
-                },
-                "type":2
-                },
-                {
-                "name":"Device",
-                "value":{
-                "deviceId":"002c00123036323316473134",
-                "deviceType":"lte-tankutility-v2",
-                "signalStrength":null,
-                "batteryLevel":"good",
-                "status":"Online",
-                "networkType":"lte-tankutility-v2"
-                },
-                "type":3
-                },
-                {
-                "name":"FuelType",
-                "value":"Propane",
-                "type":0
-                },
-                {
-                "name":"Orientation",
-                "value":"horizontal",
-                "type":0
-                },
-                {
-                "name":"Capacity",
-                "value":"500",
-                "type":0
-                },
-                {
-                "name":"ConsumptionTypes",
-                "value":null,
-                "type":0
-                },
-                {
-                "name":"FuelDealerId",
-                "value":"-MTlVxCs0HvpbVcoa1_E",
-                "type":0
-                },
-                {
-                "name":"LastReading",
-                "value":"2023-12-21T15:47:23Z",
-                "type":0
-                },
-                {
-                "name":"FuelLevel",
-                "value":74,
-                "type":0
-                }
-                ],
-                "values":null,
-                "provisioned":"2022-08-14T19:06:58.8861501Z"
-                }
-                ]
-            """
-        )
+        apparatuses = await self.get_endpoint("/v2/Apparatus/list")
+        if apparatuses is None:
+            _LOGGER.debug("Could not decode apparatuses response")
+            return None
+        if not isinstance(apparatuses, list):
+            _LOGGER.error("Expected list from /v2/Apparatus/list got %s", apparatuses)
+
         data: dict[str, Item] = {}
         for apparatus in apparatuses:
             apparatus = from_dict(Apparatus, apparatus)
@@ -163,14 +76,11 @@ class GeneracApiClient:
                     "Unknown apparatus type %s %s", apparatus.type, apparatus.name
                 )
                 continue
-            # detail_json = await self.get_endpoint(
-            #     f"/v1/Apparatus/details/{apparatus.apparatusId}"
-            # )
-            detail_json = json.loads(
-                """
-                {"apparatusId": 1135681, "name": "70 Birch Standby", "serialNumber": "3013639157", "apparatusClassification": 0, "panelId": "21", "activationDate": "2023-08-09T00:00:00Z", "deviceType": "wifi", "deviceSsid": "MLG45478", "shortDeviceId": null, "networkType": "wifi", "apparatusStatus": 1, "heroImageUrl": "https://soa.generac.com/selfhelp/media/6af4702c-b653-4abb-988d-efc4e67c2413", "statusLabel": "Ready to run", "statusText": "Your generator is ready to run.", "eCodeLabel": null, "weather": {"temperature": {"value": 42.0, "unit": "F", "unitType": 18}, "iconCode": 7}, "isConnected": true, "isConnecting": false, "showWarning": false, "hasMaintenanceAlert": false, "lastSeen": "2023-12-25T04:26:07.475+00:00", "connectionTimestamp": "2023-12-19T00:11:49.061+00:00", "address": {"line1": "70 Birch St", "line2": null, "city": "Kenilworth", "region": "NJ", "country": "US", "postalCode": "07033-1507"}, "properties": [{"name": null, "value": 1, "type": 70}, {"name": null, "value": "105", "type": 93}, {"name": null, "value": "13.6", "type": 69}, {"name": "Hours of Protection", "value": 3312.0, "type": 31}], "tuProperties": [], "subscription": {"type": 2, "status": 1, "isLegacy": false, "isDunning": false}, "enrolledInVpp": false, "hasActiveVppEvent": false, "productInfo": [{"name": "ProductType", "value": "gs", "type": 0}, {"name": "Description", "value": "18KW GUARDIAN-NO T/SW AL", "type": 0}], "disconnectedNotification": {"id": 20280746, "receiveEmail": true, "receiveSms": true, "receivePush": true, "snoozeUntil": null}, "hasDisconnectedNotificationsOn": true}
-            """
+
+            detail_json = await self.get_endpoint(
+                f"/v1/Apparatus/details/{apparatus.apparatusId}"
             )
+
             if detail_json is None:
                 _LOGGER.debug(
                     f"Could not decode respose from /v1/Apparatus/details/{apparatus.apparatusId}"
@@ -200,10 +110,10 @@ class GeneracApiClient:
             data = await response.json()
             _LOGGER.debug("getEndpoint %s", json.dumps(data))
             return data
-        except SessionExpiredException as ex1:
-            raise ex1
-        except Exception as ex2:
-            raise IOError() from ex2
+        except SessionExpiredException:
+            raise
+        except Exception as ex:
+            raise IOError() from ex
 
     async def login(self) -> None:
         """Login to API"""
