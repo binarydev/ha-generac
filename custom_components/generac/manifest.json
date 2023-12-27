@@ -1,6 +1,6 @@
 {
   "domain": "generac",
-  "name": "Generac MobileLink (Generators & Propane Tank Monitors)",
+  "name": "Generac MobileLink",
   "codeowners": ["@binarydev"],
   "config_flow": true,
   "dependencies": [],
