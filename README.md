@@ -44,26 +44,6 @@
 6. Restart Home Assistant
 7. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "generac"
 
-Using your HA configuration directory (folder) as a starting point you should now also have this:
-
-```text
-custom_components/generac/translations/en.json
-custom_components/generac/translations/fr.json
-custom_components/generac/translations/nb.json
-custom_components/generac/translations/sensor.en.json
-custom_components/generac/translations/sensor.fr.json
-custom_components/generac/translations/sensor.nb.json
-custom_components/generac/translations/sensor.nb.json
-custom_components/generac/__init__.py
-custom_components/generac/api.py
-custom_components/generac/binary_sensor.py
-custom_components/generac/config_flow.py
-custom_components/generac/const.py
-custom_components/generac/manifest.json
-custom_components/generac/sensor.py
-custom_components/generac/switch.py
-```
-
 ## Configuration is done in the UI
 
 <!---->
@@ -85,9 +65,9 @@ Forked from the original implementation created by [@bentekkie](https://github.c
 [integration_blueprint]: https://github.com/custom-components/integration_blueprint
 [black]: https://github.com/psf/black
 [black-shield]: https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge
-[buymecoffee]: https://www.buymeacoffee.com/bentekkie
+[buymecoffee]: https://www.buymeacoffee.com/binarydev
 [buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
-[commits-shield]: https://img.shields.io/github/commit-activity/y/bentekkie/ha-generac.svg?style=for-the-badge
+[commits-shield]: https://img.shields.io/github/commit-activity/y/binarydev/ha-generac.svg?style=for-the-badge
 [commits]: https://github.com/binarydev/ha-generac/commits/main
 [hacs]: https://hacs.xyz
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
