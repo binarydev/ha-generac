@@ -148,8 +148,8 @@ class ApparatusDetail:
     @dataclass
     class Property:
         name: Optional[str]
-        value: Optional[str | int | float]
-        type: Optional[int]
+        value: Optional[str | int | float | dict]
+        type: Optional[int | str]
 
     @dataclass
     class ProductInfo:
@@ -180,6 +180,7 @@ class ApparatusDetail:
     connectionTimestamp: Optional[str] = None
     address: Optional[Address] = None
     properties: Optional[list[Property]] = None
+    tuProperties: Optional[list[Property]] = None
     subscription: Optional[Subscription] = None
     enrolledInVpp: Optional[bool] = None
     hasActiveVppEvent: Optional[bool] = None

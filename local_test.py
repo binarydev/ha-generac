@@ -25,7 +25,7 @@ async def main():
             os.environ["GENERAC_USER"], os.environ["GENERAC_PASS"], session
         )
         await api.login()
-        print(json.dumps(await api.get_generator_data(), cls=EnhancedJSONEncoder))
+        print(json.dumps(await api.get_device_data(), cls=EnhancedJSONEncoder))
 
 
 loop = asyncio.get_event_loop()

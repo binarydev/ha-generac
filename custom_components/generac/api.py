@@ -8,6 +8,7 @@ import aiohttp
 from bs4 import BeautifulSoup
 from dacite import from_dict
 
+from .const import ALLOWED_DEVICES
 from .models import Apparatus
 from .models import ApparatusDetail
 from .models import Item
@@ -57,9 +58,9 @@ class GeneracApiClient:
         except SessionExpiredException:
             self._logged_in = False
             return await self.async_get_data()
-        return await self.get_generator_data()
+        return await self.get_device_data()
 
-    async def get_generator_data(self):
+    async def get_device_data(self):
         apparatuses = await self.get_endpoint("/v2/Apparatus/list")
         if apparatuses is None:
             _LOGGER.debug("Could not decode apparatuses response")
@@ -70,11 +71,12 @@ class GeneracApiClient:
         data: dict[str, Item] = {}
         for apparatus in apparatuses:
             apparatus = from_dict(Apparatus, apparatus)
-            if apparatus.type != 0:
+            if apparatus.type not in ALLOWED_DEVICES:
                 _LOGGER.debug(
                     "Unknown apparatus type %s %s", apparatus.type, apparatus.name
                 )
                 continue
+
             detail_json = await self.get_endpoint(
                 f"/v1/Apparatus/details/{apparatus.apparatusId}"
             )

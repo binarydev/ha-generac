@@ -2,12 +2,17 @@
 
 [![hacs][hacsbadge]][hacs]
 
-**This component will set up the following platforms.**
+**Custom Generac integration component with support for generators and propane tank monitors. It will set up the following platforms.**
 
-| Platform        | Entities created for each generator                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------------- |
-| `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`                                       |
-| `sensor`        | `status`, `run_time`, `protection_time`, `activation_date`, `last_seen`, `connection_time`, `battery_voltage` |
+| Platform        | Entities created for each generator                                                                                                                                                                                                                                               |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`                                                                                                                                                                                                           |
+| `sensor`        | `status`, `run_time`, `protection_time`, `activation_date`, `last_seen`, `connection_time`, `battery_voltage`, `device_type`, `dealer_email`, `dealer_name`, `dealer_phone`, `address`, `status_text`, `status_label`, `serial_number`, `model_number`, `device_ssid`, `panel_id` |
+
+| Platform        | Entities created for each propane tank monitor                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`                                                        |
+| `sensor`        | `status`, `capacity`, `fuel_level`, `fuel_type`, `orientation`, `last_reading_date`, `battery_level`, `address`, `device_type` |
 
 ![example][exampleimg]
 

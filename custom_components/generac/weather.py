@@ -23,9 +23,11 @@ async def async_setup_entry(
     data = coordinator.data
     if isinstance(data, dict):
         async_add_entities(
-            sensor(coordinator, entry, generator_id, item)
-            for generator_id, item in data.items()
+            sensor(coordinator, entry, device_id, item)
+            for device_id, item in data.items()
             for sensor in sensors(item)
+            if item.apparatus.weather is not None
+            and item.apparatus.weather.iconCode is not None
         )
 
 
@@ -39,7 +41,7 @@ class WeatherSensor(GeneracEntity, WeatherEntity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.generator_id}_weather"
+        return f"{DEFAULT_NAME}_{self.device_id}_weather"
 
     @property
     def condition(self):
