@@ -59,6 +59,7 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
             ModelNumberSensor,
             DeviceSsidSensor,
             PanelIDSensor,
+            SignalStrengthSensor,
         ]
     elif item.apparatus.type == DEVICE_TYPE_PROPANE_MONITOR:
         lst = [
@@ -541,21 +542,18 @@ class FuelLevelSensor(GeneracEntity, SensorEntity):
         return get_prop_value(self.aparatus_detail.tuProperties, 9, None)
 
 
-# class SignalStrengthSensor(GeneracEntity, SensorEntity):
-#     """generac Sensor class."""
-#     device_class = SensorDeviceClass.SIGNAL_STRENGTH
-#     native_unit_of_measurement = "db"
+class SignalStrengthSensor(GeneracEntity, SensorEntity):
+    """generac Sensor class."""
 
-#     @property
-#     def name(self):
-#         """Return the name of the sensor."""
-#         return sensor_name(self, "signal_strength")
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return sensor_name(self, "signal_strength")
 
-#     @property
-#     def native_value(self):
-#         """Return the state of the sensor."""
-#         val = next((prop.value for prop in self.aparatus.properties if prop.type == 69), 0)
-#         if isinstance(val, int):
-#             return 0
-#         if val.signalStrength is None:
-#             return 0
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        wifi_signal_data = get_prop_value(self.aparatus.properties, 3, None)
+        if wifi_signal_data is None:
+            return "0%"
+        return wifi_signal_data.signalStrength
