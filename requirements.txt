@@ -1,7 +1,7 @@
 aiohttp==3.9.5
 beautifulsoup4==4.12.3
 dacite==1.8.1
-homeassistant==2024.4.3
+homeassistant==2024.7.3
 voluptuous==0.14.2
 pre-commit==3.7.0
 reorder-python-imports==3.12.0
