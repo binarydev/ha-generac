@@ -3,5 +3,5 @@ beautifulsoup4==4.12.3
 dacite==1.8.1
 homeassistant==2024.4.3
 voluptuous==0.14.2
-pre-commit==3.7.0
+pre-commit==3.8.0
 reorder-python-imports==3.12.0
