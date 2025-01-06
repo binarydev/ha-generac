@@ -3,8 +3,8 @@ from typing import Type
 
 from homeassistant.components.weather import WeatherEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import TEMP_CELSIUS
-from homeassistant.const import TEMP_FAHRENHEIT
+from homeassistant.const import UnitOfTemperature.CELSIUS
+from homeassistant.const import UnitOfTemperature.FAHRENHEIT
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
