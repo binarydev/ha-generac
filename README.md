@@ -15,7 +15,7 @@
 
 > _NOTE:_ If you've previously installed this integration, delete it first from Settings -> Integrations and delete the "Custom Repository" entry in HACS (found in HACS -> Integrations -> 3 dot menu on the top right)
 
-Click this button to skip steps 1 and 2 below: [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=binarydev&repository=binarydev%2Fha-generac&category=Integration)
+Click this button to skip steps 1 and 2 below: [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=binarydev&repository=ha-generac&category=Integration)
 
 1. On the HACS -> Integrations page, click the `Explore & Download Repositories` button
 2. Search the list for `generac` and select it to open the details page
