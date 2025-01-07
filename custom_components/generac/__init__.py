@@ -47,7 +47,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     for platform in PLATFORMS:
         if entry.options.get(platform, True):
             coordinator.platforms.append(platform)
-            hass.hass.async_add_executor_job(
+            hass.hass.entry.async_create_task(
                 hass.config_entries.async_forward_entry_setups(entry, platform)
             )
 
