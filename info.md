@@ -16,13 +16,19 @@
 ## Installation
 
 1. Click install.
-1. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "generac".
+2. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "generac".
+3. Enter the credentials you use to login for https://app.mobilelinkgen.com/ and submit the form
+4. The integration should initialize and begin pulling your device information within seconds
 
 {% endif %}
 
 ## Configuration is done in the UI
 
 <!---->
+
+## Contributions are welcome!
+
+If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
 
 ## Credits
 
@@ -35,7 +41,9 @@ Forked from the original implementation created by [@bentekkie](https://github.c
 ---
 
 [integration_blueprint]: https://github.com/custom-components/integration_blueprint
-[buymecoffee]: https://www.buymeacoffee.com/ludeeus
+[black]: https://github.com/psf/black
+[black-shield]: https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge
+[buymecoffee]: https://www.buymeacoffee.com/bentekkie
 [buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
 [commits-shield]: https://img.shields.io/github/commit-activity/y/bentekkie/ha-generac.svg?style=for-the-badge
 [commits]: https://github.com/binarydev/ha-generac/commits/main
@@ -46,9 +54,10 @@ Forked from the original implementation created by [@bentekkie](https://github.c
 [exampleimg]: example.png
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
 [forum]: https://community.home-assistant.io/
-[license]: https://github.com/binarydev/ha-generac/blob/main/LICENSE
-[license-shield]: https://img.shields.io/github/license/bentekkie/ha-generac.svg?style=for-the-badge
-[maintenance-shield]: https://img.shields.io/badge/maintainer-%40bentekkie-blue.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/bentekkie/ha-generac.svg?style=for-the-badge
+[license-shield]: https://img.shields.io/github/license/binarydev/ha-generac.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/badge/maintainer-%40binarydev-blue.svg?style=for-the-badge
+[pre-commit]: https://github.com/pre-commit/pre-commit
+[pre-commit-shield]: https://img.shields.io/badge/pre--commit-enabled-brightgreen?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/binarydev/ha-generac.svg?style=for-the-badge
 [releases]: https://github.com/binarydev/ha-generac/releases
 [user_profile]: https://github.com/binarydev
