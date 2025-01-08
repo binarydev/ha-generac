@@ -1,4 +1,5 @@
 """Sensor platform for generac."""
+
 from datetime import datetime
 from typing import Type
 
@@ -110,6 +111,16 @@ def sensor_name(self, name_label):
 class StatusSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
+    options = [
+        "Ready",
+        "Running",
+        "Exercising",
+        "Warning",
+        "Stopped",
+        "Communication Issue",
+        "Unknown",
+    ]
+    device_class = SensorDeviceClass.ENUM
     icon = "mdi:power"
 
     @property
@@ -120,22 +131,13 @@ class StatusSensor(GeneracEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        options = [
-            "Ready",
-            "Running",
-            "Exercising",
-            "Warning",
-            "Stopped",
-            "Communication Issue",
-            "Unknown",
-        ]
         if self.aparatus.type == DEVICE_TYPE_GENERATOR:
             if self.aparatus_detail.apparatusStatus is None:
-                return options[-1]
+                return self.options[-1]
             index = self.aparatus_detail.apparatusStatus - 1
-            if index < 0 or index > len(options) - 1:
-                index = len(options) - 1
-            return options[index]
+            if index < 0 or index > len(self.options) - 1:
+                index = len(self.options) - 1
+            return self.options[index]
         else:
             val = get_prop_value(self.aparatus.properties, 3, None)
             if val is None:
