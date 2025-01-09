@@ -2,7 +2,7 @@
 Custom integration to integrate generac with Home Assistant.
 
 For more details about this integration, please refer to
-https://github.com/bentekkie/generac
+https://github.com/binarydev/generac
 """
 import asyncio
 import logging
