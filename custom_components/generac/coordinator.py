@@ -26,7 +26,6 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         self.hass = hass
         self.api = client
         self._config_entry = config_entry
-        self.platforms = []
         self.is_online = False
         scan_interval = timedelta(
             seconds=config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
