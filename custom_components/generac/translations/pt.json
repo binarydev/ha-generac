@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "generac",
+        "description": "Se precisar de ajuda com a configuração, consulte: https://github.com/binarydev/ha-generac",
+        "data": {
+          "username": "Nome de utilizador",
+          "password": "Palavra-passe"
+        }
+      }
+    },
+    "error": {
+      "auth": "Nome de utilizador ou palavra-passe incorretos.",
+      "internal": "Erro interno, reporte o problema em https://github.com/binarydev/ha-generac."
+    },
+    "abort": {
+      "single_instance_allowed": "Apenas é permitida uma única instância."
+    }
+  },
+  "options": {
+    "step": {
+      "user": {
+        "data": {
+          "binary_sensor": "Sensores binários ativados",
+          "image": "Imagem ativada",
+          "scan_interval": "Intervalo de sondagem (segundos)",
+          "sensor": "Sensores não binários ativados",
+          "switch": "Interruptor ativado",
+          "weather": "Sensor meteorológico ativado"
+        }
+      }
+    }
+  }
+}
