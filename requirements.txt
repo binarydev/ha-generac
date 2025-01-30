@@ -1,6 +1,6 @@
 aiohttp==3.11.11
 beautifulsoup4==4.12.3
-dacite==1.8.1
+dacite==1.9.1
 homeassistant==2025.1.2
 voluptuous==0.15.2
 pre-commit==4.0.1
