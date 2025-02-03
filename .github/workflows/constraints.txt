@@ -3,6 +3,6 @@ pre-commit==4.0.1
 black==24.10.0
 flake8==7.1.1
 reorder-python-imports==3.14.0
-beautifulsoup4==4.12.3
+beautifulsoup4==4.13.0
 dacite==1.8.1
 pipreqs==0.5.0
