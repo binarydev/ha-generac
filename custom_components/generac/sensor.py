@@ -118,6 +118,8 @@ class StatusSensor(GeneracEntity, SensorEntity):
         "Stopped",
         "Communication Issue",
         "Unknown",
+        "Online",
+        "Offline",
     ]
     device_class = SensorDeviceClass.ENUM
     icon = "mdi:power"
