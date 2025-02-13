@@ -5,7 +5,7 @@ from typing import Type
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfElectricPotential
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -282,7 +282,7 @@ class BatteryVoltageSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
     device_class = SensorDeviceClass.VOLTAGE
-    native_unit_of_measurement = "V"
+    native_unit_of_measurement = UnitOfElectricPotential.VOLT
 
     @property
     def name(self):
@@ -532,6 +532,7 @@ class FuelLevelSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
     device_class = SensorDeviceClass.BATTERY
+    native_unit_of_measurement = PERCENTAGE
 
     @property
     def name(self):
