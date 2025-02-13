@@ -5,7 +5,9 @@ from typing import Type
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfElectricPotential
+from homeassistant.const import PERCENTAGE
+from homeassistant.const import UnitOfElectricPotential
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
