@@ -1,4 +1,4 @@
-aiohttp==3.11.14
+aiohttp==3.11.15
 beautifulsoup4==4.13.3
 dacite==1.9.2
 homeassistant==2025.3.3
