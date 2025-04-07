@@ -89,7 +89,7 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
 
     @property
     def config_entry(self):
-         return config_entries.async_get_entry(self.handler)
+        return config_entries.async_get_entry(self.handler)
 
     async def async_step_init(self, user_input=None):  # pylint: disable=unused-argument
         """Manage the options."""
