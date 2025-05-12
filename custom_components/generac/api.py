@@ -1,7 +1,4 @@
 """Generac API Client."""
-
-# Incorporates changes from https://github.com/bentekkie/ha-generac/pull/140
-
 import json
 import logging
 from typing import Any
@@ -51,6 +48,7 @@ class GeneracApiClient:
         self._session = session
         self._logged_in = False
         self.csrf = ""
+        # Below is the login fix from https://github.com/bentekkie/ha-generac/pull/140
         self._headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
