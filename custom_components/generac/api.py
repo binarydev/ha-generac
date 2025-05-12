@@ -1,4 +1,7 @@
 """Generac API Client."""
+
+# Incorporates changes from https://github.com/bentekkie/ha-generac/pull/140
+
 import json
 import logging
 from typing import Any
@@ -48,6 +51,13 @@ class GeneracApiClient:
         self._session = session
         self._logged_in = False
         self.csrf = ""
+        self._headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+        }
 
     async def async_get_data(self) -> dict[str, Item] | None:
         """Get data from the API."""
@@ -91,9 +101,11 @@ class GeneracApiClient:
 
     async def get_endpoint(self, endpoint: str):
         try:
-            response = await self._session.get(
-                API_BASE + endpoint, headers={"X-Csrf-Token": self.csrf}
-            )
+            headers = {**self._headers}
+            if self.csrf:
+                headers["X-Csrf-Token"] = self.csrf
+
+            response = await self._session.get(API_BASE + endpoint, headers=headers)
             if response.status == 204:
                 # no data
                 return None
@@ -113,9 +125,13 @@ class GeneracApiClient:
 
     async def login(self) -> None:
         """Login to API"""
+        headers = {**self._headers}
+
         login_response = await (
             await self._session.get(
-                f"{API_BASE}/Auth/SignIn?email={self._username}", allow_redirects=True
+                f"{API_BASE}/Auth/SignIn?email={self._username}",
+                headers=headers,
+                allow_redirects=True,
             )
         ).text()
 
@@ -140,9 +156,12 @@ class GeneracApiClient:
             )
         self.csrf = sign_in_config.csrf
 
+        headers = {**self._headers}
+        headers["X-Csrf-Token"] = sign_in_config.csrf
+
         self_asserted_response = await self._session.post(
             f"{LOGIN_BASE}/SelfAsserted",
-            headers={"X-Csrf-Token": sign_in_config.csrf},
+            headers=headers,
             params={
                 "tx": "StateProperties=" + sign_in_config.transId,
                 "p": "B2C_1A_SignUpOrSigninOnline",
@@ -163,6 +182,7 @@ class GeneracApiClient:
 
         confirmed_response = await self._session.get(
             f"{LOGIN_BASE}/api/CombinedSigninAndSignup/confirmed",
+            headers=headers,
             params={
                 "csrf_token": sign_in_config.csrf,
                 "tx": "StateProperties=" + sign_in_config.transId,
@@ -199,7 +219,9 @@ class GeneracApiClient:
         form_data.add_field("state", login_state.attrs["value"])
         form_data.add_field("code", login_code.attrs["value"])
 
-        login_response = await self._session.post(action, data=form_data)
+        login_response = await self._session.post(
+            action, data=form_data, headers=self._headers
+        )
 
         if login_response.status != 200:
             raise IOError(f"Bad api login response: {login_response.status}")
