@@ -11,13 +11,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import GeneracApiClient
-from .utils import async_client_session
 from .const import CONF_PASSWORD
 from .const import CONF_USERNAME
 from .const import DOMAIN
 from .const import PLATFORMS
 from .const import STARTUP_MESSAGE
 from .coordinator import GeneracDataUpdateCoordinator
+from .utils import async_client_session
 
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -55,7 +55,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unloaded
-
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
