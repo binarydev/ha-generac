@@ -9,9 +9,9 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import GeneracApiClient
+from .utilts import async_client_session
 from .const import CONF_PASSWORD
 from .const import CONF_USERNAME
 from .const import DOMAIN
@@ -32,7 +32,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     username = entry.data.get(CONF_USERNAME, "")
     password = entry.data.get(CONF_PASSWORD, "")
 
-    session = async_get_clientsession(hass)
+    session = await async_client_session(hass)
     client = GeneracApiClient(username, password, session)
 
     coordinator = GeneracDataUpdateCoordinator(hass, client=client, config_entry=entry)
