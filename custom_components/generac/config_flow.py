@@ -7,7 +7,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import GeneracApiClient
-from .utilts import async_client_session
+from .utils import async_client_session
 from .api import InvalidCredentialsException
 from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
