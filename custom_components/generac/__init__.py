@@ -4,6 +4,7 @@ Custom integration to integrate generac with Home Assistant.
 For more details about this integration, please refer to
 https://github.com/binarydev/generac
 """
+
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -11,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import GeneracApiClient
-from .utilts import async_client_session
+from .utils import async_client_session
 from .const import CONF_PASSWORD
 from .const import CONF_USERNAME
 from .const import DOMAIN

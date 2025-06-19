@@ -13,7 +13,8 @@ import dataclasses
 import json
 import logging
 import os
-import aiohttp
+
+import aiohttp  # type: ignore
 from custom_components.generac.api import GeneracApiClient
 
 logging.basicConfig(level=logging.DEBUG)
