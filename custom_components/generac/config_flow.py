@@ -7,6 +7,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import GeneracApiClient
+from .utilts import async_client_session
 from .api import InvalidCredentialsException
 from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
@@ -68,7 +69,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def _test_credentials(self, username, password):
         """Return true if credentials is valid."""
         try:
-            session = async_create_clientsession(self.hass)
+            session = await async_client_session(self.hass)
             client = GeneracApiClient(username, password, session)
             await client.async_get_data()
             return None
