@@ -1,36 +1,38 @@
 """Test the Generac sensor platform."""
 from unittest.mock import MagicMock
 
-from custom_components.generac.const import DEVICE_TYPE_GENERATOR
-from custom_components.generac.const import DEVICE_TYPE_PROPANE_MONITOR
-from custom_components.generac.models import Item, Apparatus, ApparatusDetail, Weather
+from custom_components.generac.const import (
+    DEVICE_TYPE_GENERATOR,
+    DEVICE_TYPE_PROPANE_MONITOR,
+)
+from custom_components.generac.models import Apparatus, ApparatusDetail, Item, Weather
 from custom_components.generac.sensor import (
-    StatusSensor,
-    RunTimeSensor,
-    ProtectionTimeSensor,
     ActivationDateSensor,
-    LastSeenSensor,
-    ConnectionTimeSensor,
+    AddressSensor,
+    BatteryLevelSensor,
     BatteryVoltageSensor,
-    DeviceTypeSensor,
+    CapacitySensor,
+    ConnectionTimeSensor,
     DealerEmailSensor,
     DealerNameSensor,
     DealerPhoneSensor,
-    AddressSensor,
-    StatusTextSensor,
-    StatusLabelSensor,
-    SerialNumberSensor,
-    ModelNumberSensor,
     DeviceSsidSensor,
-    PanelIDSensor,
-    SignalStrengthSensor,
-    CapacitySensor,
+    DeviceTypeSensor,
     FuelLevelSensor,
     FuelTypeSensor,
-    OrientationSensor,
     LastReadingDateSensor,
-    BatteryLevelSensor,
+    LastSeenSensor,
+    ModelNumberSensor,
+    OrientationSensor,
     OutdoorTemperatureSensor,
+    PanelIDSensor,
+    ProtectionTimeSensor,
+    RunTimeSensor,
+    SerialNumberSensor,
+    SignalStrengthSensor,
+    StatusLabelSensor,
+    StatusSensor,
+    StatusTextSensor,
 )
 
 

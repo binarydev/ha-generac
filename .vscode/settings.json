@@ -9,7 +9,6 @@
     "editor.defaultFormatter": "ms-python.black-formatter"
   },
   "python.formatting.provider": "none",
-  "python.linting.flake8Enabled": true,
   "[json]": {
     "editor.quickSuggestions": {
       "strings": true

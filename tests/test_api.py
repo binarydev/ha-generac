@@ -1,5 +1,6 @@
 """Test the Generac API."""
 import re
+
 import aiohttp
 import pytest
 from aioresponses import aioresponses

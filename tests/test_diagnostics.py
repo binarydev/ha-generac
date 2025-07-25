@@ -2,7 +2,7 @@
 from unittest.mock import MagicMock
 
 from custom_components.generac.diagnostics import async_get_config_entry_diagnostics
-from custom_components.generac.models import Item, Apparatus, ApparatusDetail
+from custom_components.generac.models import Apparatus, ApparatusDetail, Item
 
 
 async def test_diagnostics(hass):
