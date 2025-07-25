@@ -19,7 +19,6 @@ from .const import STARTUP_MESSAGE
 from .coordinator import GeneracDataUpdateCoordinator
 from .utils import async_client_session
 
-
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 
