@@ -28,12 +28,12 @@ jobs:
 
       - name: Upgrade pip
         run: |
-          pip install --constraint=.github/workflows/constraints.txt pip
+          pip install pip
           pip --version
 
       - name: Install Python modules
         run: |
-          pip install --constraint=.github/workflows/constraints.txt pre-commit black flake8 reorder-python-imports pipreqs
+          pip install pre-commit black flake8 reorder-python-imports pipreqs
 
       - name: Run pre-commit on all files
         run: |
