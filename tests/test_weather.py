@@ -1,7 +1,10 @@
 """Test the Generac weather platform."""
 from unittest.mock import MagicMock
 
-from custom_components.generac.models import Apparatus, ApparatusDetail, Item, Weather
+from custom_components.generac.models import Apparatus
+from custom_components.generac.models import ApparatusDetail
+from custom_components.generac.models import Item
+from custom_components.generac.models import Weather
 from custom_components.generac.weather import WeatherSensor
 
 

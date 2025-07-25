@@ -1,10 +1,10 @@
 """Test the Generac config flow."""
 from unittest.mock import patch
 
-from homeassistant import config_entries, setup
-from homeassistant.core import HomeAssistant
-
 from custom_components.generac.const import DOMAIN
+from homeassistant import config_entries
+from homeassistant import setup
+from homeassistant.core import HomeAssistant
 
 
 async def test_form(hass: HomeAssistant) -> None:

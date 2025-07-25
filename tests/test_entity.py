@@ -2,7 +2,9 @@
 from unittest.mock import MagicMock
 
 from custom_components.generac.entity import GeneracEntity
-from custom_components.generac.models import Apparatus, ApparatusDetail, Item
+from custom_components.generac.models import Apparatus
+from custom_components.generac.models import ApparatusDetail
+from custom_components.generac.models import Item
 
 
 def get_mock_item() -> Item:

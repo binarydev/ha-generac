@@ -1,10 +1,10 @@
 """Test the Generac data update coordinator."""
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 
 import pytest
-from homeassistant.helpers.update_coordinator import UpdateFailed
-
 from custom_components.generac.coordinator import GeneracDataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
 
 async def test_coordinator_init(hass):

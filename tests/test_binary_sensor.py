@@ -1,17 +1,20 @@
 """Test the Generac binary sensor platform."""
 from unittest.mock import MagicMock
 
-from custom_components.generac.binary_sensor import (
-    GeneracConnectedSensor,
-    GeneracConnectingSensor,
-    GeneracMaintenanceAlertSensor,
-    GeneracWarningSensor,
-)
-from custom_components.generac.models import Apparatus, ApparatusDetail, Item
+from custom_components.generac.binary_sensor import GeneracConnectedSensor
+from custom_components.generac.binary_sensor import GeneracConnectingSensor
+from custom_components.generac.binary_sensor import GeneracMaintenanceAlertSensor
+from custom_components.generac.binary_sensor import GeneracWarningSensor
+from custom_components.generac.models import Apparatus
+from custom_components.generac.models import ApparatusDetail
+from custom_components.generac.models import Item
 
 
 def get_mock_item(
-    is_connected: bool, is_connecting: bool, has_maintenance_alert: bool, show_warning: bool
+    is_connected: bool,
+    is_connecting: bool,
+    has_maintenance_alert: bool,
+    show_warning: bool,
 ) -> Item:
     """Return a mock Item object."""
     return Item(

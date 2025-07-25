@@ -11,7 +11,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import GeneracApiClient
-from .const import CONF_PASSWORD, CONF_USERNAME, DOMAIN, PLATFORMS, STARTUP_MESSAGE
+from .const import CONF_PASSWORD
+from .const import CONF_USERNAME
+from .const import DOMAIN
+from .const import PLATFORMS
+from .const import STARTUP_MESSAGE
 from .coordinator import GeneracDataUpdateCoordinator
 from .utils import async_client_session
 

@@ -4,8 +4,8 @@ import re
 import aiohttp
 import pytest
 from aioresponses import aioresponses
-
-from custom_components.generac.api import GeneracApiClient, get_setting_json
+from custom_components.generac.api import GeneracApiClient
+from custom_components.generac.api import get_setting_json
 
 
 def test_get_setting_json():
@@ -37,24 +37,30 @@ def test_get_setting_json_no_settings():
 async def test_api_flow():
     """Test the full API flow."""
     with aioresponses() as m:
-        m.get("https://app.mobilelinkgen.com/api/Auth/SignIn?email=test-username",
+        m.get(
+            "https://app.mobilelinkgen.com/api/Auth/SignIn?email=test-username",
             status=200,
-            body='''<html><head><script>
+            body="""<html><head><script>
 var SETTINGS = {"csrf": "test-csrf", "transId": "test-trans-id", "config": {}, "hosts": {}};
-</script></head><body></body></html>''',
+</script></head><body></body></html>""",
         )
         m.post(
-            re.compile(r"https://generacconnectivity.b2clogin.com/generacconnectivity.onmicrosoft.com/B2C_1A_MobileLink_SignIn/SelfAsserted.*"),
+            re.compile(
+                r"https://generacconnectivity.b2clogin.com/generacconnectivity.onmicrosoft.com/B2C_1A_MobileLink_SignIn/SelfAsserted.*"
+            ),
             status=200,
-            payload={"status": "200"}
+            payload={"status": "200"},
         )
         m.get(
-            re.compile(r"https://generacconnectivity.b2clogin.com/generacconnectivity.onmicrosoft.com/B2C_1A_MobileLink_SignIn/api/CombinedSigninAndSignup/confirmed.*"),
+            re.compile(
+                r"https://generacconnectivity.b2clogin.com/generacconnectivity.onmicrosoft.com/B2C_1A_MobileLink_SignIn/api/CombinedSigninAndSignup/confirmed.*"
+            ),
             status=200,
-            body='''<html><body><form action="https://app.mobilelinkgen.com/test-action"><input name="state" value="test-state"><input name="code" value="test-code"></form></body></html>''',
+            body="""<html><body><form action="https://app.mobilelinkgen.com/test-action"><input name="state" value="test-state"><input name="code" value="test-code"></form></body></html>""",
         )
         m.post("https://app.mobilelinkgen.com/test-action", status=200)
-        m.get("https://app.mobilelinkgen.com/api/v2/Apparatus/list",
+        m.get(
+            "https://app.mobilelinkgen.com/api/v2/Apparatus/list",
             status=200,
             payload=[
                 {
@@ -64,9 +70,10 @@ var SETTINGS = {"csrf": "test-csrf", "transId": "test-trans-id", "config": {}, "
                 }
             ],
         )
-        m.get("https://app.mobilelinkgen.com/api/v1/Apparatus/details/12345",
+        m.get(
+            "https://app.mobilelinkgen.com/api/v1/Apparatus/details/12345",
             status=200,
-            payload={"key": "value"}
+            payload={"key": "value"},
         )
 
         async with aiohttp.ClientSession() as session:

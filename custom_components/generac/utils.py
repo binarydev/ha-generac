@@ -1,5 +1,6 @@
 """Helper to create an aiohttp client session for the Generac API."""
-from aiohttp import ClientSession, CookieJar
+from aiohttp import ClientSession
+from aiohttp import CookieJar
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 

@@ -1,39 +1,38 @@
 """Test the Generac sensor platform."""
 from unittest.mock import MagicMock
 
-from custom_components.generac.const import (
-    DEVICE_TYPE_GENERATOR,
-    DEVICE_TYPE_PROPANE_MONITOR,
-)
-from custom_components.generac.models import Apparatus, ApparatusDetail, Item, Weather
-from custom_components.generac.sensor import (
-    ActivationDateSensor,
-    AddressSensor,
-    BatteryLevelSensor,
-    BatteryVoltageSensor,
-    CapacitySensor,
-    ConnectionTimeSensor,
-    DealerEmailSensor,
-    DealerNameSensor,
-    DealerPhoneSensor,
-    DeviceSsidSensor,
-    DeviceTypeSensor,
-    FuelLevelSensor,
-    FuelTypeSensor,
-    LastReadingDateSensor,
-    LastSeenSensor,
-    ModelNumberSensor,
-    OrientationSensor,
-    OutdoorTemperatureSensor,
-    PanelIDSensor,
-    ProtectionTimeSensor,
-    RunTimeSensor,
-    SerialNumberSensor,
-    SignalStrengthSensor,
-    StatusLabelSensor,
-    StatusSensor,
-    StatusTextSensor,
-)
+from custom_components.generac.const import DEVICE_TYPE_GENERATOR
+from custom_components.generac.const import DEVICE_TYPE_PROPANE_MONITOR
+from custom_components.generac.models import Apparatus
+from custom_components.generac.models import ApparatusDetail
+from custom_components.generac.models import Item
+from custom_components.generac.models import Weather
+from custom_components.generac.sensor import ActivationDateSensor
+from custom_components.generac.sensor import AddressSensor
+from custom_components.generac.sensor import BatteryLevelSensor
+from custom_components.generac.sensor import BatteryVoltageSensor
+from custom_components.generac.sensor import CapacitySensor
+from custom_components.generac.sensor import ConnectionTimeSensor
+from custom_components.generac.sensor import DealerEmailSensor
+from custom_components.generac.sensor import DealerNameSensor
+from custom_components.generac.sensor import DealerPhoneSensor
+from custom_components.generac.sensor import DeviceSsidSensor
+from custom_components.generac.sensor import DeviceTypeSensor
+from custom_components.generac.sensor import FuelLevelSensor
+from custom_components.generac.sensor import FuelTypeSensor
+from custom_components.generac.sensor import LastReadingDateSensor
+from custom_components.generac.sensor import LastSeenSensor
+from custom_components.generac.sensor import ModelNumberSensor
+from custom_components.generac.sensor import OrientationSensor
+from custom_components.generac.sensor import OutdoorTemperatureSensor
+from custom_components.generac.sensor import PanelIDSensor
+from custom_components.generac.sensor import ProtectionTimeSensor
+from custom_components.generac.sensor import RunTimeSensor
+from custom_components.generac.sensor import SerialNumberSensor
+from custom_components.generac.sensor import SignalStrengthSensor
+from custom_components.generac.sensor import StatusLabelSensor
+from custom_components.generac.sensor import StatusSensor
+from custom_components.generac.sensor import StatusTextSensor
 
 
 def get_mock_item(
@@ -165,7 +164,9 @@ async def test_generator_sensors(hass):
         outdoor_temperature=72.0,
         outdoor_temperature_unit="F",
     )
-    item.apparatus.properties = [MagicMock(type=3, value=MagicMock(signalStrength="100%"))]
+    item.apparatus.properties = [
+        MagicMock(type=3, value=MagicMock(signalStrength="100%"))
+    ]
 
     sensor = RunTimeSensor(coordinator, entry, "12345", item)
     assert sensor.native_value == 123

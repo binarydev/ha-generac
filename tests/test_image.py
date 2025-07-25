@@ -1,10 +1,13 @@
 """Test the Generac image platform."""
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import httpx
-
 from custom_components.generac.image import HeroImageSensor
-from custom_components.generac.models import Apparatus, ApparatusDetail, Item
+from custom_components.generac.models import Apparatus
+from custom_components.generac.models import ApparatusDetail
+from custom_components.generac.models import Item
 
 
 def get_mock_item(hero_image_url: str) -> Item:
