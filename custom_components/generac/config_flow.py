@@ -64,6 +64,8 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(CONF_USERNAME): str,
+                    vol.Optional(CONF_PASSWORD): str,
                     vol.Optional(CONF_SESSION_COOKIE): str,
                 }
             ),
