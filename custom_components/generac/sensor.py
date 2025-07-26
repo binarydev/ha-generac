@@ -197,7 +197,7 @@ class RunTimeSensor(GeneracEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        val = get_prop_value(self.aparatus_detail.properties, 70, 0)
+        val = get_prop_value(self.aparatus_detail.properties, 71, 0)
         if isinstance(val, str):
             val = float(val)
         return val
