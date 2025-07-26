@@ -83,9 +83,9 @@ def get_mock_item(
         apparatusDetail=ApparatusDetail(
             apparatusStatus=status,
             properties=[
-                MagicMock(type=70, value=run_time),
-                MagicMock(type=31, value=protection_time),
-                MagicMock(type=69, value=battery_voltage),
+                MagicMock(type=71, value=run_time),
+                MagicMock(type=32, value=protection_time),
+                MagicMock(type=70, value=battery_voltage),
             ],
             activationDate=activation_date,
             lastSeen=last_seen,

@@ -40,12 +40,17 @@ def get_setting_json(page: str) -> Mapping[str, Any] | None:
 
 class GeneracApiClient:
     def __init__(
-        self, username: str, password: str, session: aiohttp.ClientSession
+        self,
+        session: aiohttp.ClientSession,
+        username: str,
+        password: str,
+        session_cookie: str,
     ) -> None:
         """Sample API Client."""
         self._username = username
         self._passeword = password
         self._session = session
+        self._session_cookie = session_cookie
         self._logged_in = False
         self.csrf = ""
         # Below is the login fix from https://github.com/bentekkie/ha-generac/pull/140
@@ -60,7 +65,10 @@ class GeneracApiClient:
     async def async_get_data(self) -> dict[str, Item] | None:
         """Get data from the API."""
         try:
-            if not self._logged_in:
+            if self._session_cookie:
+                self._headers["Cookie"] = self._session_cookie
+                self._logged_in = True
+            elif not self._logged_in:
                 await self.login()
                 self._logged_in = True
         except SessionExpiredException:

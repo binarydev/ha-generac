@@ -29,7 +29,7 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 5. Once Home Assistant comes back online, go to Settings -> Integrations
 6. Click the `Add Integration` button
 7. Search the list for `generac` and select it
-8. Enter the credentials you use to login for https://app.mobilelinkgen.com/ and submit the form
+8. Enter the credentials you use to login for https://app.mobilelinkgen.com/ and submit the form. As an alternative, if username/password do not work for you, follow the instructions below for Cookie-based authentication.
 9. The integration should initialize and begin pulling your device information within seconds
 
 ## Installation (without HACS)
@@ -43,6 +43,30 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 7. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "generac"
 
 ## Configuration is done in the UI
+
+## Cookie-based Authentication
+
+Using Username+Password to login is currently broken, due to Generac blocking automated scripts from logging in on the MobileLink app via a Captcha. Instead, the recommended method of authentication is to manually login and retrieve your session cookie. This requires you to do the following:
+
+1. Log into https://app.mobilelinkgen.com/ until you reach the main dashboard with your devices.
+2. Open the web-browser Developer Tools aka "devtools" (e.g. in Chrome, right-click the page and hit the Inspect option).
+3. Go to the Network tab in the devtools panel and refresh your browser.
+4. The Network tab will now have a long list of things it just loaded, but the one you care about is named "dashboard" and should be the first or one of the first items in the list, as seen [here](./setup_instructions/network-tab.png). Select it.
+5. Select the "dashboard" item in the list, and it will open a panel to the right-hand side that shows you more details, which looks like [this](./setup_instructions/network-tab-dashboard.jpg).
+6. Scroll down in that right-hand panel until you find a field named Cookie, which has a LARGE block of text (it will likely start with the letters "incap_ses", like [this](./setup_instructions/cookie.png)). That large block of text is what you want.
+7. Double click the large block of text to select it all.
+8. Copy-paste it into the "Session Cookie" field for the Generac setup UI in Home Assistant.
+9. Hit submit and enjoy your integration!
+
+> [!IMPORTANT]
+>
+> ## Unusual Integration Setup
+>
+> Status Quo in summer 2025: This integration requires an unusual setup process to be able to access the data of your Generac devices. This is because Generac has changed (once again) the original authentication workflow to actively block third-party access. They state that Home Assistant users were overloading their API. We have since adjusted accordingly to adapt to the new authenatication method and reduced our default polling interval from every 30 seconds to every 120 seconds, to be a "good" user of the API and cut the volume of traffic to their servers by 75%. This polling interval can also be tuned to your needs in the options panel of the HA integration once you have set it up, as seen [here](./setup_instructions/options.png).
+>
+> This approach implies that when Generac is going to change something in their non-public/undocumented API, it's quite likely that the integration will break instantly.
+>
+> **It's impossible to predict** when this will happen, but **I will try** to keep the integration up-to-date and working **as long as possible**.
 
 <!---->
 
