@@ -39,6 +39,7 @@ PLATFORMS = [BINARY_SENSOR, SENSOR, WEATHER, IMAGE]
 CONF_ENABLED = "enabled"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
+CONF_SESSION_COOKIE = "session_cookie"
 CONF_SCAN_INTERVAL = "scan_interval"
 
 # Options

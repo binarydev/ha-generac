@@ -13,6 +13,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from .api import GeneracApiClient
 from .const import CONF_PASSWORD
 from .const import CONF_USERNAME
+from .const import CONF_SESSION_COOKIE
 from .const import DOMAIN
 from .const import PLATFORMS
 from .const import STARTUP_MESSAGE
@@ -28,11 +29,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data.setdefault(DOMAIN, {})
         _LOGGER.info(STARTUP_MESSAGE)
 
-    username = entry.data.get(CONF_USERNAME, "")
+    username = entry.data.get(CONF_USERNAME, "generac")
     password = entry.data.get(CONF_PASSWORD, "")
+    session_cookie = entry.data.get(CONF_SESSION_COOKIE, "")
 
     session = await async_client_session(hass)
-    client = GeneracApiClient(username, password, session)
+    client = GeneracApiClient(session, username, password, session_cookie)
 
     coordinator = GeneracDataUpdateCoordinator(hass, client=client, config_entry=entry)
     await coordinator.async_config_entry_first_refresh()

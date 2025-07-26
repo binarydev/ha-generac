@@ -1,4 +1,5 @@
 """Adds config flow for generac."""
+
 import logging
 
 import voluptuous as vol
@@ -10,6 +11,7 @@ from .api import InvalidCredentialsException
 from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
 from .const import CONF_USERNAME
+from .const import CONF_SESSION_COOKIE
 from .const import DOMAIN
 from .utils import async_client_session
 
@@ -36,11 +38,13 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             error = await self._test_credentials(
-                user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
+                user_input.get(CONF_USERNAME, ""),
+                user_input.get(CONF_PASSWORD, ""),
+                user_input.get(CONF_SESSION_COOKIE, ""),
             )
             if error is None:
                 return self.async_create_entry(
-                    title=user_input[CONF_USERNAME], data=user_input
+                    title=user_input.get(CONF_USERNAME, "generac"), data=user_input
                 )
             else:
                 self._errors["base"] = error
@@ -59,16 +63,18 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
-                {vol.Required(CONF_USERNAME): str, vol.Required(CONF_PASSWORD): str}
+                {
+                    vol.Optional(CONF_SESSION_COOKIE): str,
+                }
             ),
             errors=self._errors,
         )
 
-    async def _test_credentials(self, username, password):
+    async def _test_credentials(self, username, password, session_cookie):
         """Return true if credentials is valid."""
         try:
             session = await async_client_session(self.hass)
-            client = GeneracApiClient(username, password, session)
+            client = GeneracApiClient(session, username, password, session_cookie)
             await client.async_get_data()
             return None
         except InvalidCredentialsException as e:  # pylint: disable=broad-except
@@ -115,5 +121,5 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
     async def _update_options(self):
         """Update config entry options."""
         return self.async_create_entry(
-            title=self.config_entry.data.get(CONF_USERNAME), data=self.options
+            title=self.config_entry.data.get(CONF_USERNAME, "generac"), data=self.options
         )
