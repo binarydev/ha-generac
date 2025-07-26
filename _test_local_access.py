@@ -33,7 +33,10 @@ async def main():
     jar = aiohttp.CookieJar(unsafe=True, quote_cookie=False)
     async with aiohttp.ClientSession(cookie_jar=jar) as session:
         api = GeneracApiClient(
-            session, os.environ.get("GENERAC_USER", ""), os.environ.get("GENERAC_PASS", ""), os.environ.get("GENERAC_SESSION_COOKIE", "")
+            session,
+            os.environ.get("GENERAC_USER", ""),
+            os.environ.get("GENERAC_PASS", ""),
+            os.environ.get("GENERAC_SESSION_COOKIE", ""),
         )
         await api.login()
         device_data = await api.get_device_data()
