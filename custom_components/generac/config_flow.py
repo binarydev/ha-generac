@@ -1,5 +1,8 @@
 """Adds config flow for generac."""
+import json
 import logging
+import re
+import urllib.parse
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -27,6 +30,21 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         self._errors = {}
 
+    def _extract_email_from_cookie(self, cookie_str):
+        # Find the MobileLinkClientCookie value using regex
+        match = re.search(r"MobileLinkClientCookie=([^;]+)", cookie_str)
+        if not match:
+            return None
+        encoded_json = match.group(1)
+        # URL decode the JSON string
+        decoded_json = urllib.parse.unquote(encoded_json)
+        # Parse the JSON to a dict
+        try:
+            data = json.loads(decoded_json)
+            return data.get("signInName", "")
+        except Exception:
+            return None
+
     async def async_step_reconfigure(
         self, user_input=None
     ):  # pylint: disable=unused-argument
@@ -42,14 +60,26 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         #     return self.async_abort(reason="single_instance_allowed")
 
         if user_input is not None:
+            username = user_input.get(CONF_USERNAME, "")
+            session_cookie = user_input.get(CONF_SESSION_COOKIE, "")
             error = await self._test_credentials(
-                user_input.get(CONF_USERNAME, ""),
+                username,
                 user_input.get(CONF_PASSWORD, ""),
-                user_input.get(CONF_SESSION_COOKIE, ""),
+                session_cookie,
             )
-            if error is None:
+            if error is None and session_cookie:
+                unique_id = username
+                if not unique_id and session_cookie:
+                    unique_id = (
+                        self._extract_email_from_cookie(session_cookie) or "generac"
+                    )
+
+                if unique_id:
+                    await self.async_set_unique_id(unique_id)
+                    self._abort_if_unique_id_configured()
+
                 return self.async_create_entry(
-                    title=user_input.get(CONF_USERNAME, "generac"), data=user_input
+                    title=unique_id or "generac", data=user_input
                 )
             else:
                 self._errors["base"] = error
