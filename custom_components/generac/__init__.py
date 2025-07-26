@@ -12,8 +12,8 @@ from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import GeneracApiClient
 from .const import CONF_PASSWORD
-from .const import CONF_USERNAME
 from .const import CONF_SESSION_COOKIE
+from .const import CONF_USERNAME
 from .const import DOMAIN
 from .const import PLATFORMS
 from .const import STARTUP_MESSAGE

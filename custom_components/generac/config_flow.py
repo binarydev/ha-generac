@@ -1,5 +1,4 @@
 """Adds config flow for generac."""
-
 import logging
 
 import voluptuous as vol
@@ -10,8 +9,8 @@ from .api import GeneracApiClient
 from .api import InvalidCredentialsException
 from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
-from .const import CONF_USERNAME
 from .const import CONF_SESSION_COOKIE
+from .const import CONF_USERNAME
 from .const import DOMAIN
 from .utils import async_client_session
 
@@ -123,5 +122,6 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
     async def _update_options(self):
         """Update config entry options."""
         return self.async_create_entry(
-            title=self.config_entry.data.get(CONF_USERNAME, "generac"), data=self.options
+            title=self.config_entry.data.get(CONF_USERNAME, "generac"),
+            data=self.options,
         )

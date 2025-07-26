@@ -47,6 +47,7 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 ## Cookie-based Authentication
 
 Using Username+Password to login is currently broken, due to Generac blocking automated scripts from logging in on the MobileLink app via a Captcha. Instead, the recommended method of authentication is to manually login and retrieve your session cookie. This requires you to do the following:
+
 1. Log into https://app.mobilelinkgen.com/ until you reach the main dashboard with your devices.
 2. Open the web-browser Developer Tools aka "devtools" (e.g. in Chrome, right-click the page and hit the Inspect option).
 3. Go to the Network tab in the devtools panel and refresh your browser.
@@ -58,14 +59,14 @@ Using Username+Password to login is currently broken, due to Generac blocking au
 9. Hit submit and enjoy your integration!
 
 > [!IMPORTANT]
-> ## Unusual Integration Setup 
+>
+> ## Unusual Integration Setup
+>
 > Status Quo in summer 2025: This integration requires an unusual setup process to be able to access the data of your Generac devices. This is because Generac has changed (once again) the original authentication workflow to actively block third-party access. They state that Home Assistant users were overloading their API. We have since adjusted accordingly to adapt to the new authenatication method and reduced our default polling interval from every 30 seconds to every 120 seconds, to be a "good" user of the API and cut the volume of traffic to their servers by 75%. This polling interval can also be tuned to your needs in the options panel of the HA integration once you have set it up, as seen [here](./setup_instructions/options.png).
-> 
+>
 > This approach implies that when Generac is going to change something in their non-public/undocumented API, it's quite likely that the integration will break instantly.
-> 
-> __It's impossible to predict__ when this will happen, but __I will try__ to keep the integration up-to-date and working __as long as possible__.
-> 
-
+>
+> **It's impossible to predict** when this will happen, but **I will try** to keep the integration up-to-date and working **as long as possible**.
 
 <!---->
 

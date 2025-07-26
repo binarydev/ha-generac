@@ -28,7 +28,7 @@ async def test_form(hass: HomeAssistant) -> None:
             {
                 "username": "test-username",
                 "password": "test-password",
-                "session_cookie": "test-session-cookie"
+                "session_cookie": "test-session-cookie",
             },
         )
         await hass.async_block_till_done()
@@ -38,6 +38,6 @@ async def test_form(hass: HomeAssistant) -> None:
     assert result2["data"] == {
         "username": "test-username",
         "password": "test-password",
-        "session_cookie": "test-session-cookie"
+        "session_cookie": "test-session-cookie",
     }
     assert len(mock_setup_entry.mock_calls) == 1

@@ -40,7 +40,11 @@ def get_setting_json(page: str) -> Mapping[str, Any] | None:
 
 class GeneracApiClient:
     def __init__(
-        self, session: aiohttp.ClientSession, username: str, password: str, session_cookie: str
+        self,
+        session: aiohttp.ClientSession,
+        username: str,
+        password: str,
+        session_cookie: str,
     ) -> None:
         """Sample API Client."""
         self._username = username

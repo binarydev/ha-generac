@@ -77,7 +77,9 @@ var SETTINGS = {"csrf": "test-csrf", "transId": "test-trans-id", "config": {}, "
         )
 
         async with aiohttp.ClientSession() as session:
-            client = GeneracApiClient(session, "test-username", "test-password", "test-session-cookie")
+            client = GeneracApiClient(
+                session, "test-username", "test-password", "test-session-cookie"
+            )
             data = await client.async_get_data()
             assert data is not None
             assert data["12345"].apparatus.apparatusId == 12345
