@@ -121,4 +121,3 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
                 }
             ),
         )
-
