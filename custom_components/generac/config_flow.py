@@ -27,6 +27,12 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         self._errors = {}
 
+    async def async_step_reconfigure(
+        self, user_input=None
+    ):  # pylint: disable=unused-argument
+        """Manage the options."""
+        return await self.async_step_user(user_input)
+
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
         self._errors = {}
