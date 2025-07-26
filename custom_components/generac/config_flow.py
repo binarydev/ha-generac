@@ -91,11 +91,8 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry):
         """Initialize HACS options flow."""
+        self.config_entry = config_entry
         self.options = dict(config_entry.options)
-
-    @property
-    def config_entry(self):
-        return config_entries.async_get_entry(self.handler)
 
     async def async_step_init(self, user_input=None):  # pylint: disable=unused-argument
         """Manage the options."""
@@ -121,6 +118,9 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def _update_options(self):
         """Update config entry options."""
+        self.hass.config_entries.async_update_entry(
+            self.config_entry, data=self.options
+        )
         return self.async_create_entry(
             title=self.config_entry.data.get(CONF_USERNAME, "generac"),
             data=self.options,
