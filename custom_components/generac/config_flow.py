@@ -108,7 +108,7 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
         """Handle a flow initialized by the user."""
         if user_input is not None:
             self.options.update(user_input)
-            return await self._update_options()
+            return self.async_create_entry(data=user_input)
 
         return self.async_show_form(
             step_id="user",
@@ -122,12 +122,3 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
             ),
         )
 
-    async def _update_options(self):
-        """Update config entry options."""
-        self.hass.config_entries.async_update_entry(
-            self.config_entry, data=self.options
-        )
-        return self.async_create_entry(
-            title=self.config_entry.data.get(CONF_USERNAME, "generac"),
-            data=self.options,
-        )
