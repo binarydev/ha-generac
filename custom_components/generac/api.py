@@ -48,7 +48,7 @@ class GeneracApiClient:
     ) -> None:
         """Sample API Client."""
         self._username = username
-        self._passeword = password
+        self._password = password
         self._session = session
         self._session_cookie = session_cookie
         self._logged_in = False
@@ -155,7 +155,7 @@ class GeneracApiClient:
         form_data = aiohttp.FormData()
         form_data.add_field("request_type", "RESPONSE")
         form_data.add_field("signInName", self._username)
-        form_data.add_field("password", self._passeword)
+        form_data.add_field("password", self._password)
         if sign_in_config.csrf is None or sign_in_config.transId is None:
             raise IOError(
                 "Missing csrf and/or transId in sign in config %s", sign_in_config
