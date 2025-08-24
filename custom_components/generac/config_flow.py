@@ -76,7 +76,9 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if unique_id:
                     await self.async_set_unique_id(unique_id)
-                    self._abort_if_unique_id_configured()
+                    # We don't want to abort if the unique ID is already configured
+                    # HA does the right thing and will reconfigure the existing entry
+                    #self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
                     title=unique_id or "generac", data=user_input
