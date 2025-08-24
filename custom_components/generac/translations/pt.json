@@ -7,7 +7,7 @@
         "data": {
           "username": "Nome de utilizador",
           "password": "Palavra-passe",
-          "session_cookie": "Cookie de sessão (alternativa opcional ao nome de utilizador/palavra-passe)"
+          "session_cookie": "Cookie de sessão"
         }
       }
     },

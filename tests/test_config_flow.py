@@ -26,18 +26,14 @@ async def test_form(hass: HomeAssistant) -> None:
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                "username": "test-username",
-                "password": "test-password",
-                "session_cookie": "test-session-cookie",
+                "session_cookie": "MobileLinkClientCookie=%7B%0D%0A%20%20%22signInName%22%3A%20%22binarydev%40testing.com%22%0D%0A%7D",
             },
         )
         await hass.async_block_till_done()
 
     assert result2["type"] == "create_entry"
-    assert result2["title"] == "test-username"
+    assert result2["title"] == "binarydev@testing.com"
     assert result2["data"] == {
-        "username": "test-username",
-        "password": "test-password",
-        "session_cookie": "test-session-cookie",
+        "session_cookie": "MobileLinkClientCookie=%7B%0D%0A%20%20%22signInName%22%3A%20%22binarydev%40testing.com%22%0D%0A%7D",
     }
     assert len(mock_setup_entry.mock_calls) == 1

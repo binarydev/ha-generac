@@ -68,21 +68,14 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 session_cookie,
             )
             if error is None and session_cookie:
-                unique_id = username
-                if not unique_id and session_cookie:
-                    unique_id = (
-                        self._extract_email_from_cookie(session_cookie) or "generac"
-                    )
+                unique_id = self._extract_email_from_cookie(session_cookie) or "generac"
 
-                if unique_id:
-                    await self.async_set_unique_id(unique_id)
-                    # We don't want to abort if the unique ID is already configured
-                    # HA does the right thing and will reconfigure the existing entry
-                    #self._abort_if_unique_id_configured()
+                await self.async_set_unique_id(unique_id)
+                # We don't want to abort if the unique ID is already configured
+                # HA does the right thing and will reconfigure the existing entry
+                # self._abort_if_unique_id_configured()
 
-                return self.async_create_entry(
-                    title=unique_id or "generac", data=user_input
-                )
+                return self.async_create_entry(title=unique_id, data=user_input)
             else:
                 self._errors["base"] = error
 
@@ -101,9 +94,9 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_USERNAME): str,
-                    vol.Optional(CONF_PASSWORD): str,
-                    vol.Optional(CONF_SESSION_COOKIE): str,
+                    # vol.Optional(CONF_USERNAME): str,
+                    # vol.Optional(CONF_PASSWORD): str,
+                    vol.Required(CONF_SESSION_COOKIE): str,
                 }
             ),
             errors=self._errors,

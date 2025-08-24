@@ -7,7 +7,7 @@
         "data": {
           "username": "Brukernavn",
           "password": "Passord",
-          "session_cookie": "Sesjonskake (valgfritt alternativ til brukernavn/passord)"
+          "session_cookie": "Sesjonskake"
         }
       }
     },
