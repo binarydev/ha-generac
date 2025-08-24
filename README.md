@@ -29,7 +29,7 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 5. Once Home Assistant comes back online, go to Settings -> Integrations
 6. Click the `Add Integration` button
 7. Search the list for `generac` and select it
-8. Enter the credentials you use to login for https://app.mobilelinkgen.com/ and submit the form. As an alternative, if username/password do not work for you, follow the instructions below for Cookie-based authentication.
+8. Follow the instructions below for Cookie-based authentication, which require manually logging in to the MobileLink website and retrieving a session cookie.
 9. The integration should initialize and begin pulling your device information within seconds
 
 ## Installation (without HACS)
@@ -46,14 +46,14 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 
 ## Cookie-based Authentication
 
-Using Username+Password to login is currently broken, due to Generac blocking automated scripts from logging in on the MobileLink app via a Captcha. Instead, the recommended method of authentication is to manually login and retrieve your session cookie. This requires you to do the following:
+Using Username+Password to login has been removed (for now), due to Generac blocking automated scripts from logging in on the MobileLink app via a Captcha. Instead, the recommended method of authentication is to manually login and retrieve your session cookie. This requires you to do the following:
 
 1. Log into https://app.mobilelinkgen.com/ until you reach the main dashboard with your devices. Click on one of your Generac devices. This will take you to a URL that looks like this https://app.mobilelinkgen.com/details/<ID_NUMBER_HERE>
 2. Open the web-browser Developer Tools aka "devtools" (e.g. in Chrome, right-click the page and hit the Inspect option).
 3. Go to the Network tab in the devtools panel and refresh your browser (THE REFRESH IS IMPORTANT HERE).
 4. The Network tab will now have a long list of things it just loaded, but the one you care about will be the first item in the list and will match the <ID_NUMBER_HERE> part of the URL you landed on.
 5. Select that first item in the list, and it will open a panel to the right-hand side that shows you more details.
-6. In this side panel, make sure you have the "Headers" tab selected. Scroll down in that right-hand panel until you find a field named Cookie, which has a LARGE block of text with thousands of characters, symbols, and numbers that could fill 2+ pages in a word doc. That large block of text is what you want. If the text is only a few short lines, it's not the right one, in which case refresh the page and try again or try clicking on a different page of the website and repeating the above steps there.
+6. In this side panel, make sure you have the "Headers" tab selected. Scroll down in that right-hand panel until you find a field named Cookie, which has a LARGE block of text with thousands of characters, symbols, and numbers that could probably fill 2+ pages in a word doc. That's just to say that if the text is only a few short lines equal to maybe just a paragraph, it's not the right one, in which case refresh the page and try again or try clicking on a different page of the website and repeating the above steps on that other page. The very large block of text is what you want.
 7. Double click the large block of text to select it all.
 8. Copy-paste it into the "Session Cookie" field for the Generac setup UI in Home Assistant.
 9. Hit submit and enjoy your integration!
