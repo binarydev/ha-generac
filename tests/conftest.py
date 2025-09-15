@@ -2,7 +2,6 @@
 from unittest.mock import patch
 
 import pytest
-from custom_components.generac.coordinator import GeneracDataUpdateCoordinator
 
 pytest_plugins = "pytest_homeassistant_custom_component"
 

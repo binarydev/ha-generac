@@ -1,11 +1,8 @@
 """Generac API Client."""
 import json
 import logging
-from typing import Any
-from typing import Mapping
 
 import aiohttp
-from bs4 import BeautifulSoup
 from dacite import from_dict
 
 from .const import ALLOWED_DEVICES
