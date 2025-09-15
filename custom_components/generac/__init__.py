@@ -37,7 +37,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     client = GeneracApiClient(session, username, password, session_cookie)
 
     coordinator = GeneracDataUpdateCoordinator(hass, client=client, config_entry=entry)
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception as e:
+        raise ConfigEntryNotReady from e
 
     if not coordinator.last_update_success:
         raise ConfigEntryNotReady
