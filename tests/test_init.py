@@ -22,6 +22,7 @@ async def test_setup_unload_and_reload_entry(hass: HomeAssistant, bypass_get_dat
     # Set up the entry and assert that the values set during setup are where we expect
     # them to be. Because we have a mock coordinator, none of the values is actually
     # filled in.
+    await hass.config_entries.async_setup(config_entry.entry_id)
     assert await async_setup_entry(hass, config_entry)
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
 
@@ -53,6 +54,7 @@ async def test_setup_entry_existing_domain(hass: HomeAssistant, bypass_get_data)
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
 
+    await hass.config_entries.async_setup(config_entry.entry_id)
     assert await async_setup_entry(hass, config_entry)
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
     assert "existing_entry" in hass.data[DOMAIN]
@@ -63,6 +65,7 @@ async def test_unload_entry_failed(hass: HomeAssistant, bypass_get_data):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
 
+    await hass.config_entries.async_setup(config_entry.entry_id)
     assert await async_setup_entry(hass, config_entry)
 
     with patch(
