@@ -131,7 +131,17 @@ async def test_form_no_cookie(hass: HomeAssistant) -> None:
 @pytest.mark.asyncio
 async def test_options_flow(hass: HomeAssistant) -> None:
     """Test the options flow."""
-    entry = MockConfigEntry(domain=DOMAIN, data={}, options={"binary_sensor": True, "sensor": True, "weather": True, "image": True, "scan_interval": 120})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={
+            "binary_sensor": True,
+            "sensor": True,
+            "weather": True,
+            "image": True,
+            "scan_interval": 120,
+        },
+    )
     entry.add_to_hass(hass)
 
     await hass.config_entries.async_setup(entry.entry_id)
@@ -147,7 +157,13 @@ async def test_options_flow(hass: HomeAssistant) -> None:
     )
 
     assert result["type"] == "create_entry"
-    assert entry.options == {"binary_sensor": False, "sensor": True, "weather": True, "image": True, "scan_interval": 120}
+    assert entry.options == {
+        "binary_sensor": False,
+        "sensor": True,
+        "weather": True,
+        "image": True,
+        "scan_interval": 120,
+    }
 
 
 @pytest.mark.asyncio
@@ -160,7 +176,11 @@ async def test_reconfigure_flow(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
     result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id}
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+        },
     )
 
     assert result["type"] == "form"
