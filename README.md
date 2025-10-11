@@ -46,6 +46,8 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 
 ## Cookie-based Authentication
 
+NOTE: This step requires Edge/Chrome. Firefox handles cookies differently and does not provide the full block of text required as a single string that you can easily extract.
+
 Using Username+Password to login has been removed (for now), due to Generac blocking automated scripts from logging in on the MobileLink app via a Captcha. Instead, the recommended method of authentication is to manually login and retrieve your session cookie. This requires you to do the following:
 
 1. Log into https://app.mobilelinkgen.com/ until you reach the main dashboard with your devices. Click on one of your Generac devices. This will take you to a URL that looks like this https://app.mobilelinkgen.com/details/<ID_NUMBER_HERE>
