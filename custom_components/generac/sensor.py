@@ -105,14 +105,19 @@ def get_prop_value(props, type_num: int, default_val):
     return val
 
 
-def sensor_name(self, name_label):
-    return f"{DEFAULT_NAME}_{self.device_id}_{name_label}"
+class GeneracSensorEntity(GeneracEntity, SensorEntity):
+    """Base class for all Generac sensor entities."""
+    
+    def __init__(self, coordinator, config_entry, device_id: str, item, name_suffix: str):
+        """Initialize the sensor with a specific name suffix."""
+        super().__init__(coordinator, config_entry, device_id, item)
+        self._entity_id_name = f"{DEFAULT_NAME}_{device_id}_{name_suffix}"
 
 
-class StatusSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
+class StatusSensor(GeneracSensorEntity):
+    """generac Status Sensor class."""
 
-    options = [
+    _options = [
         "Ready",
         "Running",
         "Exercising",
@@ -123,13 +128,24 @@ class StatusSensor(GeneracEntity, SensorEntity):
         "Online",
         "Offline",
     ]
-    device_class = SensorDeviceClass.ENUM
-    icon = "mdi:power"
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "status")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.ENUM
+
+    @property
+    def icon(self) -> str:
+        """Return the icon."""
+        return "mdi:power"
+
+    @property
+    def options(self) -> list[str]:
+        """Return the options."""
+        return self._options
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "status")
 
     @property
     def native_value(self):
@@ -148,22 +164,29 @@ class StatusSensor(GeneracEntity, SensorEntity):
             return val.status
 
 
-class DeviceTypeSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
+class DeviceTypeSensor(GeneracSensorEntity):
+    """generac Device Type Sensor class."""
 
-    options = [
+    _options = [
         "Wifi",
         "Ethernet",
         "MobileData",
         "lte-tankutility-v2",
         "Unknown",
     ]
-    device_class = SensorDeviceClass.ENUM
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "device_type")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.ENUM
+
+    @property
+    def options(self) -> list[str]:
+        """Return the options."""
+        return self._options
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "device_type")
 
     @property
     def native_value(self):
@@ -183,16 +206,21 @@ class DeviceTypeSensor(GeneracEntity, SensorEntity):
         return self.options[-1]
 
 
-class RunTimeSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    device_class = SensorDeviceClass.DURATION
-    native_unit_of_measurement = "h"
+class RunTimeSensor(GeneracSensorEntity):
+    """generac Run Time Sensor class."""
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "run_time")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.DURATION
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return "h"
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "run_time")
 
     @property
     def native_value(self):
@@ -203,16 +231,21 @@ class RunTimeSensor(GeneracEntity, SensorEntity):
         return val
 
 
-class ProtectionTimeSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    device_class = SensorDeviceClass.DURATION
-    native_unit_of_measurement = "h"
+class ProtectionTimeSensor(GeneracSensorEntity):
+    """generac Protection Time Sensor class."""
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "protection_time")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.DURATION
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return "h"
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "protection_time")
 
     @property
     def native_value(self):
@@ -223,73 +256,78 @@ class ProtectionTimeSensor(GeneracEntity, SensorEntity):
         return val
 
 
-class ActivationDateSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    device_class = SensorDeviceClass.TIMESTAMP
+class ActivationDateSensor(GeneracSensorEntity):
+    """generac Activation Date Sensor class."""
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "activation_date")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "activation_date")
 
     @property
     def native_value(self):
         """Return the state of the sensor."""
         if self.aparatus_detail.activationDate is None:
             return None
-
         return format_timestamp(self.aparatus_detail.activationDate)
 
 
-class LastSeenSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    device_class = SensorDeviceClass.TIMESTAMP
+class LastSeenSensor(GeneracSensorEntity):
+    """generac Last Seen Sensor class."""
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "last_seen")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "last_seen")
 
     @property
     def native_value(self):
         """Return the state of the sensor."""
         if self.aparatus_detail.lastSeen is None:
             return None
-
         return format_timestamp(self.aparatus_detail.lastSeen)
 
 
-class ConnectionTimeSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    device_class = SensorDeviceClass.TIMESTAMP
+class ConnectionTimeSensor(GeneracSensorEntity):
+    """generac Connection Time Sensor class."""
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "connection_time")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "connection_time")
 
     @property
     def native_value(self):
         """Return the state of the sensor."""
         if self.aparatus_detail.connectionTimestamp is None:
             return None
-
         return format_timestamp(self.aparatus_detail.connectionTimestamp)
 
 
-class BatteryVoltageSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    device_class = SensorDeviceClass.VOLTAGE
-    native_unit_of_measurement = UnitOfElectricPotential.VOLT
+class BatteryVoltageSensor(GeneracSensorEntity):
+    """generac Battery Voltage Sensor class."""
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "battery_voltage")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.VOLTAGE
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return UnitOfElectricPotential.VOLT
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "battery_voltage")
 
     @property
     def native_value(self):
@@ -300,15 +338,16 @@ class BatteryVoltageSensor(GeneracEntity, SensorEntity):
         return val
 
 
-class OutdoorTemperatureSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    device_class = SensorDeviceClass.TEMPERATURE
+class OutdoorTemperatureSensor(GeneracSensorEntity):
+    """generac Outdoor Temperature Sensor class."""
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "outdoor_temperature")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.TEMPERATURE
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "outdoor_temperature")
 
     @property
     def native_unit_of_measurement(self):
@@ -334,11 +373,9 @@ class OutdoorTemperatureSensor(GeneracEntity, SensorEntity):
         return self.aparatus_detail.weather.temperature.value
 
 
-class SerialNumberSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "serial_number")
+class SerialNumberSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "serial_number")
 
     @property
     def native_value(self):
@@ -346,11 +383,9 @@ class SerialNumberSensor(GeneracEntity, SensorEntity):
         return self.aparatus.serialNumber
 
 
-class ModelNumberSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "model_number")
+class ModelNumberSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "model_number")
 
     @property
     def native_value(self):
@@ -358,11 +393,9 @@ class ModelNumberSensor(GeneracEntity, SensorEntity):
         return self.aparatus.modelNumber
 
 
-class DeviceSsidSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "device_ssid")
+class DeviceSsidSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "device_ssid")
 
     @property
     def native_value(self):
@@ -370,11 +403,9 @@ class DeviceSsidSensor(GeneracEntity, SensorEntity):
         return self.aparatus_detail.deviceSsid
 
 
-class StatusLabelSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "status_label")
+class StatusLabelSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "status_label")
 
     @property
     def native_value(self):
@@ -382,11 +413,9 @@ class StatusLabelSensor(GeneracEntity, SensorEntity):
         return self.aparatus_detail.statusLabel
 
 
-class StatusTextSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "status_text")
+class StatusTextSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "status_text")
 
     @property
     def native_value(self):
@@ -394,11 +423,9 @@ class StatusTextSensor(GeneracEntity, SensorEntity):
         return self.aparatus_detail.statusText
 
 
-class AddressSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "address")
+class AddressSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "address")
 
     @property
     def native_value(self):
@@ -406,11 +433,9 @@ class AddressSensor(GeneracEntity, SensorEntity):
         return self.aparatus.localizedAddress
 
 
-class DealerNameSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "dealer_name")
+class DealerNameSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "dealer_name")
 
     @property
     def native_value(self):
@@ -418,11 +443,9 @@ class DealerNameSensor(GeneracEntity, SensorEntity):
         return self.aparatus.preferredDealerName
 
 
-class DealerEmailSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "dealer_email")
+class DealerEmailSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "dealer_email")
 
     @property
     def native_value(self):
@@ -430,11 +453,9 @@ class DealerEmailSensor(GeneracEntity, SensorEntity):
         return self.aparatus.preferredDealerEmail
 
 
-class DealerPhoneSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "dealer_phone")
+class DealerPhoneSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "dealer_phone")
 
     @property
     def native_value(self):
@@ -442,11 +463,9 @@ class DealerPhoneSensor(GeneracEntity, SensorEntity):
         return self.aparatus.preferredDealerPhone
 
 
-class PanelIDSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "panel_id")
+class PanelIDSensor(GeneracSensorEntity):
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "panel_id")
 
     @property
     def native_value(self):
@@ -455,13 +474,11 @@ class PanelIDSensor(GeneracEntity, SensorEntity):
 
 
 # Propane Tank Monitor-specific Sensors
-class CapacitySensor(GeneracEntity, SensorEntity):
+class CapacitySensor(GeneracSensorEntity):
     """generac Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "capacity")
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "capacity")
 
     @property
     def native_value(self):
@@ -469,13 +486,11 @@ class CapacitySensor(GeneracEntity, SensorEntity):
         return get_prop_value(self.aparatus_detail.tuProperties, 1, 0)
 
 
-class FuelTypeSensor(GeneracEntity, SensorEntity):
+class FuelTypeSensor(GeneracSensorEntity):
     """generac Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "fuel_type")
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "fuel_type")
 
     @property
     def native_value(self):
@@ -483,13 +498,11 @@ class FuelTypeSensor(GeneracEntity, SensorEntity):
         return get_prop_value(self.aparatus_detail.tuProperties, 0, "Propane")
 
 
-class OrientationSensor(GeneracEntity, SensorEntity):
+class OrientationSensor(GeneracSensorEntity):
     """generac Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "orientation")
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "orientation")
 
     @property
     def native_value(self):
@@ -497,13 +510,11 @@ class OrientationSensor(GeneracEntity, SensorEntity):
         return get_prop_value(self.aparatus_detail.tuProperties, 2, None)
 
 
-class BatteryLevelSensor(GeneracEntity, SensorEntity):
+class BatteryLevelSensor(GeneracSensorEntity):
     """generac Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "battery_level")
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "battery_level")
 
     @property
     def native_value(self):
@@ -511,54 +522,53 @@ class BatteryLevelSensor(GeneracEntity, SensorEntity):
         return get_prop_value(self.aparatus_detail.tuProperties, 17, None)
 
 
-class LastReadingDateSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    device_class = SensorDeviceClass.TIMESTAMP
+class LastReadingDateSensor(GeneracSensorEntity):
+    """generac Last Reading Date Sensor class."""
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "last_reading")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "last_reading")
 
     @property
     def native_value(self):
         """Return the state of the sensor."""
         val = get_prop_value(self.aparatus_detail.tuProperties, 11, None)
-        if val is None:
+        if val is None or not isinstance(val, str):
             return None
         return format_timestamp(val)
 
 
-class FuelLevelSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    device_class = SensorDeviceClass.BATTERY
-    native_unit_of_measurement = PERCENTAGE
+class FuelLevelSensor(GeneracSensorEntity):
+    """generac Fuel Level Sensor class."""
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "fuel_level")
+    def device_class(self) -> SensorDeviceClass:
+        """Return the device class."""
+        return SensorDeviceClass.BATTERY
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of measurement."""
+        return PERCENTAGE
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "fuel_level")
+
+
+class SignalStrengthSensor(GeneracSensorEntity):
+    """generac Sensor class."""
+
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "signal_strength")
 
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        return get_prop_value(self.aparatus_detail.tuProperties, 9, None)
-
-
-class SignalStrengthSensor(GeneracEntity, SensorEntity):
-    """generac Sensor class."""
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return sensor_name(self, "signal_strength")
-
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        wifi_signal_data = get_prop_value(self.aparatus.properties, 3, None)
-        if wifi_signal_data is None:
+        wifi_signal_data = get_prop_value(self.aparatus.properties, 3, {"signalStrength": "0%"})
+        if not isinstance(wifi_signal_data, dict) or "signalStrength" not in wifi_signal_data:
             return "0%"
-        return wifi_signal_data.signalStrength
+        return wifi_signal_data["signalStrength"]

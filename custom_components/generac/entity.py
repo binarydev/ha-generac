@@ -7,6 +7,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import ATTRIBUTION
+from .const import DEFAULT_NAME
 from .const import DOMAIN
 from .coordinator import GeneracDataUpdateCoordinator
 from .models import Apparatus
@@ -20,6 +21,7 @@ _EMPTY_ITEM = Item(apparatus=Apparatus(), apparatusDetail=ApparatusDetail(), emp
 
 
 class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
+    """Base class for all Generac entities."""
     def __init__(
         self,
         coordinator: GeneracDataUpdateCoordinator,
@@ -31,11 +33,29 @@ class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
         self.config_entry = config_entry
         self.device_id = device_id
         self.item = item
+        self._entity_id_name = None
+
+    def _to_friendly_name(self, snake_case: str) -> str:
+        """Convert a snake_case entity name to a friendly display name."""
+        # Remove prefixes for display name only
+        name = snake_case.replace(f"{DEFAULT_NAME}_{self.device_id}_", "")
+        # Convert remaining snake_case to Title Case
+        return " ".join(word.title() for word in name.split("_"))
+
+    @property
+    def name(self):
+        """Return the display name of this entity."""
+        if not self._entity_id_name:
+            return None
+        return self._to_friendly_name(self._entity_id_name)
 
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self.config_entry.entry_id}_{self.device_id}_{self.name}"
+        if not self._entity_id_name:
+            return None
+        # Use just the device ID and entity name for the unique_id
+        return f"{DEFAULT_NAME}_{self.device_id}_{self._entity_id_name}"
 
     @property
     def device_info(self):

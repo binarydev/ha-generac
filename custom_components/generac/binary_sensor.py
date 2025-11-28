@@ -1,5 +1,5 @@
 """Binary sensor platform for generac."""
-from typing import Type
+
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.binary_sensor import BinarySensorEntity
@@ -27,7 +27,8 @@ async def async_setup_entry(
         )
 
 
-def sensors() -> Type[GeneracEntity]:
+def sensors():
+    """Return a list of sensor classes."""
     return [
         GeneracConnectedSensor,
         GeneracConnectingSensor,
@@ -36,17 +37,21 @@ def sensors() -> Type[GeneracEntity]:
     ]
 
 
-def sensor_name(self, name_label):
-    return f"{DEFAULT_NAME}_{self.device_id}_{name_label}"
+class GeneracBinarySensorEntity(GeneracEntity, BinarySensorEntity):
+    """Base class for all Generac binary sensor entities."""
+    
+    def __init__(self, coordinator, config_entry, device_id: str, item, name_suffix: str):
+        """Initialize the binary sensor with a specific name suffix."""
+        super().__init__(coordinator, config_entry, device_id, item)
+        # Include the full prefix in the entity ID
+        self._entity_id_name = f"{DEFAULT_NAME}_{device_id}_{name_suffix}"
 
 
-class GeneracConnectedSensor(GeneracEntity, BinarySensorEntity):
-    """generac binary_sensor class."""
+class GeneracConnectedSensor(GeneracBinarySensorEntity):
+    """generac Connected Status Binary Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the binary_sensor."""
-        return sensor_name(self, "is_connected")
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "is_connected")
 
     @property
     def device_class(self):
@@ -59,13 +64,11 @@ class GeneracConnectedSensor(GeneracEntity, BinarySensorEntity):
         return self.aparatus_detail.isConnected
 
 
-class GeneracConnectingSensor(GeneracEntity, BinarySensorEntity):
-    """generac binary_sensor class."""
+class GeneracConnectingSensor(GeneracBinarySensorEntity):
+    """generac Connecting Status Binary Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the binary_sensor."""
-        return sensor_name(self, "is_connecting")
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "is_connecting")
 
     @property
     def device_class(self):
@@ -78,13 +81,11 @@ class GeneracConnectingSensor(GeneracEntity, BinarySensorEntity):
         return self.aparatus_detail.isConnecting
 
 
-class GeneracMaintenanceAlertSensor(GeneracEntity, BinarySensorEntity):
-    """generac binary_sensor class."""
+class GeneracMaintenanceAlertSensor(GeneracBinarySensorEntity):
+    """generac Maintenance Alert Binary Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the binary_sensor."""
-        return sensor_name(self, "has_maintenance_alert")
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "has_maintenance_alert")
 
     @property
     def device_class(self):
@@ -97,13 +98,11 @@ class GeneracMaintenanceAlertSensor(GeneracEntity, BinarySensorEntity):
         return self.aparatus_detail.hasMaintenanceAlert
 
 
-class GeneracWarningSensor(GeneracEntity, BinarySensorEntity):
-    """generac binary_sensor class."""
+class GeneracWarningSensor(GeneracBinarySensorEntity):
+    """generac Warning Binary Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the binary_sensor."""
-        return sensor_name(self, "show_warning")
+    def __init__(self, coordinator, config_entry, device_id: str, item):
+        super().__init__(coordinator, config_entry, device_id, item, "show_warning")
 
     @property
     def device_class(self):

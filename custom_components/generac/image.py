@@ -28,8 +28,26 @@ async def async_setup_entry(
         )
 
 
-class HeroImageSensor(GeneracEntity, ImageEntity):
-    """generac Image class."""
+class GeneracImageEntity(GeneracEntity, ImageEntity):
+    """Base class for all Generac image entities."""
+    
+    def __init__(
+        self,
+        coordinator: GeneracDataUpdateCoordinator,
+        config_entry: ConfigEntry,
+        device_id: str,
+        item: Item,
+        hass: HomeAssistant,
+        name_suffix: str,
+    ):
+        """Initialize the image entity with a specific name suffix."""
+        GeneracEntity.__init__(self, coordinator, config_entry, device_id, item)
+        ImageEntity.__init__(self, hass)
+        self._entity_id_name = f"{DEFAULT_NAME}_{device_id}_{name_suffix}"
+
+
+class HeroImageSensor(GeneracImageEntity):
+    """generac Hero Image class."""
 
     def __init__(
         self,
@@ -40,13 +58,7 @@ class HeroImageSensor(GeneracEntity, ImageEntity):
         hass: HomeAssistant,
     ):
         """Initialize device."""
-        super().__init__(coordinator, config_entry, device_id, item)
-        ImageEntity.__init__(self, hass)
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.device_id}_hero_image"
+        super().__init__(coordinator, config_entry, device_id, item, hass, "hero_image")
 
     @property
     def image_url(self):

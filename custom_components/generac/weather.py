@@ -34,13 +34,34 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
     return [WeatherSensor]
 
 
-class WeatherSensor(GeneracEntity, WeatherEntity):
+class GeneracWeatherEntity(GeneracEntity, WeatherEntity):
+    """Base class for all Generac weather entities."""
+    
+    def __init__(
+        self,
+        coordinator: GeneracDataUpdateCoordinator,
+        config_entry: ConfigEntry,
+        device_id: str,
+        item: Item,
+        name_suffix: str,
+    ):
+        """Initialize the weather entity with a specific name suffix."""
+        super().__init__(coordinator, config_entry, device_id, item)
+        self._entity_id_name = f"{DEFAULT_NAME}_{device_id}_{name_suffix}"
+
+
+class WeatherSensor(GeneracWeatherEntity):
     """generac Weather class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.device_id}_weather"
+    def __init__(
+        self,
+        coordinator: GeneracDataUpdateCoordinator,
+        config_entry: ConfigEntry,
+        device_id: str,
+        item: Item,
+    ):
+        """Initialize device."""
+        super().__init__(coordinator, config_entry, device_id, item, "weather")
 
     @property
     def condition(self):
