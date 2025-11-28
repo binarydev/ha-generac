@@ -45,11 +45,38 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         except Exception:
             return None
 
-    async def async_step_reconfigure(
-        self, user_input=None
-    ):  # pylint: disable=unused-argument
-        """Manage the options."""
-        return await self.async_step_user(user_input)
+    async def async_step_reconfigure(self, user_input=None):
+        """Handle reconfiguration."""
+        errors = {}
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+
+        if user_input is not None:
+            session_cookie = user_input.get(CONF_SESSION_COOKIE, "")
+            error = await self._test_credentials(
+                "",
+                "",
+                session_cookie,
+            )
+            if error is None:
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data={**entry.data, **user_input},
+                    reason="reconfigure_successful",
+                )
+            errors["base"] = error
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_SESSION_COOKIE,
+                        default=entry.data.get(CONF_SESSION_COOKIE),
+                    ): str,
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
@@ -71,9 +98,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 unique_id = self._extract_email_from_cookie(session_cookie) or "generac"
 
                 await self.async_set_unique_id(unique_id)
-                # We don't want to abort if the unique ID is already configured
-                # HA does the right thing and will reconfigure the existing entry
-                # self._abort_if_unique_id_configured()
+                self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(title=unique_id, data=user_input)
             else:

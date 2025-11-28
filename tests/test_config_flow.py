@@ -169,19 +169,69 @@ async def test_options_flow(hass: HomeAssistant) -> None:
 @pytest.mark.asyncio
 async def test_reconfigure_flow(hass: HomeAssistant) -> None:
     """Test the reconfigure flow."""
-    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={"session_cookie": "old_cookie"}, options={}
+    )
     entry.add_to_hass(hass)
 
-    await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
+    with patch("custom_components.generac.async_setup_entry", return_value=True):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={
-            "source": config_entries.SOURCE_RECONFIGURE,
+            "source": "reconfigure",
             "entry_id": entry.entry_id,
         },
     )
 
     assert result["type"] == "form"
-    assert result["step_id"] == "user"
+    assert result["step_id"] == "reconfigure"
+
+    with patch(
+        "custom_components.generac.config_flow.GeneracApiClient.async_get_data",
+        return_value=True,
+    ), patch("custom_components.generac.async_setup_entry", return_value=True), patch(
+        "custom_components.generac.async_unload_entry", return_value=True
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                "session_cookie": "new_cookie",
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert result2["type"] == "abort"
+    assert result2["reason"] == "reconfigure_successful"
+    assert entry.data["session_cookie"] == "new_cookie"
+
+
+async def test_duplicate_entry(hass: HomeAssistant) -> None:
+    """Test duplicate entry is handled."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="binarydev@testing.com",
+        data={"session_cookie": "existing"},
+    )
+    entry.add_to_hass(hass)
+
+    await setup.async_setup_component(hass, "persistent_notification", {})
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    with patch(
+        "custom_components.generac.config_flow.GeneracApiClient.async_get_data",
+        return_value=True,
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                "session_cookie": "MobileLinkClientCookie=%7B%0D%0A%20%20%22signInName%22%3A%20%22binarydev%40testing.com%22%0D%0A%7D",
+            },
+        )
+
+    assert result2["type"] == "abort"
+    assert result2["reason"] == "already_configured"
