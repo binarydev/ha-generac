@@ -3,7 +3,7 @@ homeassistant==2025.11.3
 voluptuous==0.15.2
 pre-commit==4.3.0
 reorder-python-imports==3.15.0
-pytest==8.4.2
+pytest==9.0.1
 pytest-homeassistant-custom-component==0.13.297
 pytest-asyncio==1.2.0
 pytest-socket==0.7.0
