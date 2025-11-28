@@ -61,7 +61,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_update_reload_and_abort(
                     entry,
                     data={**entry.data, **user_input},
-                    reason="reconfigure_successful",
+                    reason="Reconfigure Successful",
                 )
             errors["base"] = error
 
@@ -147,7 +147,6 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry):
         """Initialize HACS options flow."""
-        self.config_entry = config_entry
         self.options = dict(config_entry.options)
 
     async def async_step_init(self, user_input=None):  # pylint: disable=unused-argument

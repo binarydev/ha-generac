@@ -204,7 +204,7 @@ async def test_reconfigure_flow(hass: HomeAssistant) -> None:
         await hass.async_block_till_done()
 
     assert result2["type"] == "abort"
-    assert result2["reason"] == "reconfigure_successful"
+    assert result2["reason"] == "Reconfigure Successful"
     assert entry.data["session_cookie"] == "new_cookie"
 
 
