@@ -107,7 +107,7 @@ class Apparatus:
         @dataclass
         class Value:
             type: Optional[int]
-            status: Optional[int] | Optional[str]
+            status: Optional[int | str]
             isLegacy: Optional[bool]
             isRunning: Optional[bool]
             deviceId: Optional[str]
