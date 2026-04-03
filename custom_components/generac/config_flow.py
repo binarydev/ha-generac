@@ -24,7 +24,6 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for generac."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     def __init__(self):
         """Initialize."""
@@ -134,11 +133,11 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             client = GeneracApiClient(session, username, password, session_cookie)
             await client.async_get_data()
             return None
-        except InvalidCredentialsException as e:  # pylint: disable=broad-except
-            _LOGGER.debug("ERROR in testing credentials: %s", e)
+        except InvalidCredentialsException as e:
+            _LOGGER.error("Invalid credentials: %s", e)
             return "auth"
-        except Exception as e:  # pylint: disable=broad-except
-            _LOGGER.debug("ERROR: %s", e)
+        except Exception as e:
+            _LOGGER.error("Unexpected error testing credentials: %s", e, exc_info=True)
             return "internal"
 
 
