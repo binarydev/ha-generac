@@ -1,3 +1,6 @@
+> [!WARNING]
+> Generac is moving to a new unified login system in mid-April that will likely block this integration for some time (if not permanently)! If you would like an alternative for whole-home generators that allows you to drop the need to maintain a MobileLink subscription, please see the ongoing discussions [here](https://github.com/binarydev/ha-generac/issues/227) for local hardware solutions using GenMon and Raspberry Pi's. Shoutout to [Jeff Terrace](https://github.com/jterrace) for his [blog post](https://blog.jeffterrace.com/2025/10/free-from-generac-with-genmon.html) documenting how to set this up, so others can benefit from his experience!
+
 # generac
 
 [![hacs][hacsbadge]][hacs]
