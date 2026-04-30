@@ -30,7 +30,13 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         scan_interval = timedelta(
             seconds=config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         )
-        super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=scan_interval)
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=DOMAIN,
+            update_interval=scan_interval,
+            config_entry=config_entry,
+        )
 
     async def _async_update_data(self):
         """Update data via library."""
