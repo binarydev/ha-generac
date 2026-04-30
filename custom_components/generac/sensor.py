@@ -1,4 +1,6 @@
 """Sensor platform for generac."""
+
+import logging
 from datetime import datetime
 from typing import Type
 
@@ -109,6 +111,25 @@ def sensor_name(self, name_label):
     return f"{DEFAULT_NAME}_{self.device_id}_{name_label}"
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
+def _safe_float(val, label: str = ""):
+    """Best-effort float conversion; return None on bad data so the
+    sensor reports ``unknown`` instead of crashing native_value."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    try:
+        return float(val)
+    except (TypeError, ValueError) as ex:
+        _LOGGER.debug(
+            "Could not convert %s sensor value %r to float: %s", label, val, ex
+        )
+        return None
+
+
 class StatusSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
@@ -198,9 +219,7 @@ class RunTimeSensor(GeneracEntity, SensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         val = get_prop_value(self.aparatus_detail.properties, 71, 0)
-        if isinstance(val, str):
-            val = float(val)
-        return val
+        return _safe_float(val, "run_time")
 
 
 class ProtectionTimeSensor(GeneracEntity, SensorEntity):
@@ -218,9 +237,7 @@ class ProtectionTimeSensor(GeneracEntity, SensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         val = get_prop_value(self.aparatus_detail.properties, 32, 0)
-        if isinstance(val, str):
-            val = float(val)
-        return val
+        return _safe_float(val, "protection_time")
 
 
 class ActivationDateSensor(GeneracEntity, SensorEntity):
@@ -295,9 +312,7 @@ class BatteryVoltageSensor(GeneracEntity, SensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         val = get_prop_value(self.aparatus_detail.properties, 70, 0)
-        if isinstance(val, str):
-            val = float(val)
-        return val
+        return _safe_float(val, "battery_voltage")
 
 
 class OutdoorTemperatureSensor(GeneracEntity, SensorEntity):

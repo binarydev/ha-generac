@@ -1,4 +1,5 @@
 """Test the Generac entity."""
+
 from unittest.mock import MagicMock
 
 from custom_components.generac.entity import GeneracEntity
@@ -34,7 +35,7 @@ async def test_entity(hass):
         "model": "G12345",
         "manufacturer": "Generac",
     }
-    assert entity.device_state_attributes == {
+    assert entity.extra_state_attributes == {
         "attribution": "Data provided by https://app.mobilelinkgen.com/api. This is reversed engineered. Heavily inspired by https://github.com/digitaldan/openhab-addons/blob/generac-2.0/bundles/org.openhab.binding.generacmobilelink/README.md",
         "id": "12345",
         "integration": "generac",

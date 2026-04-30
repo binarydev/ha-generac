@@ -1,4 +1,5 @@
 """Test the Generac sensor platform."""
+
 from unittest.mock import MagicMock
 
 from custom_components.generac.const import DEVICE_TYPE_GENERATOR
@@ -102,16 +103,18 @@ def get_mock_item(
                 MagicMock(type=11, value=last_reading_date),
                 MagicMock(type=17, value=battery_level),
             ],
-            weather=Weather(
-                temperature=Weather.Temperature(
-                    value=outdoor_temperature,
-                    unit=outdoor_temperature_unit,
-                    unitType=outdoor_temperature_unit_type,
-                ),
-                iconCode=weather_icon_code,
-            )
-            if outdoor_temperature is not None
-            else None,
+            weather=(
+                Weather(
+                    temperature=Weather.Temperature(
+                        value=outdoor_temperature,
+                        unit=outdoor_temperature_unit,
+                        unitType=outdoor_temperature_unit_type,
+                    ),
+                    iconCode=weather_icon_code,
+                )
+                if outdoor_temperature is not None
+                else None
+            ),
         ),
     )
 
