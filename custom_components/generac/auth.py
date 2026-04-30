@@ -29,7 +29,7 @@ import time
 import urllib.parse
 import uuid
 from dataclasses import dataclass
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 import aiohttp
 from cryptography.hazmat.primitives import hashes, serialization
@@ -253,6 +253,17 @@ async def _post_login_form(
                 "POST %s -> %s; auth0 error code=%s", url, resp.status, code
             )
             if code:
+                # Auth0 ULP renders field-level errors (wrong password,
+                # locked account, etc) with a data-error-code. Surface
+                # those as InvalidCredentialsError so the config flow
+                # maps them to "auth" instead of "internal".
+                if any(
+                    s in code.lower()
+                    for s in ("password", "credential", "user", "lock", "blocked")
+                ):
+                    raise InvalidCredentialsError(
+                        f"login rejected ({code})"
+                    )
                 raise RuntimeError(
                     f"POST {url} -> {resp.status}: {code}"
                 )
@@ -380,6 +391,17 @@ class GeneracAuth:
         self._access_token_exp: float = 0.0
         self._dpop_nonce: Optional[str] = None
         self._refresh_lock = asyncio.Lock()
+        self._rt_persist_cb: Optional[Callable[[str], Awaitable[None]]] = None
+
+    def set_refresh_token_persist_callback(
+        self, cb: Optional[Callable[[str], Awaitable[None]]]
+    ) -> None:
+        """Register an async callback invoked when Auth0 rotates the RT.
+
+        The callback receives the new refresh token and is responsible for
+        persisting it (typically into the ConfigEntry's `data` dict).
+        """
+        self._rt_persist_cb = cb
 
     @classmethod
     async def login(
@@ -512,8 +534,21 @@ class GeneracAuth:
             # the server ever does rotate, capture the new RT.
             new_rt = payload.get("refresh_token")
             if new_rt and new_rt != self._refresh_token:
-                _LOGGER.info("Refresh token rotated; updating in-memory copy")
                 self._refresh_token = new_rt
+                if self._rt_persist_cb is not None:
+                    try:
+                        await self._rt_persist_cb(new_rt)
+                        _LOGGER.info("Refresh token rotated and persisted")
+                    except Exception:  # noqa: BLE001
+                        _LOGGER.exception(
+                            "Refresh token rotated but persist callback failed; "
+                            "next HA restart may need reauth"
+                        )
+                else:
+                    _LOGGER.warning(
+                        "Refresh token rotated but no persist callback registered; "
+                        "next HA restart will need reauth"
+                    )
             return
 
         if status == 400 and payload.get("error") == "invalid_grant":

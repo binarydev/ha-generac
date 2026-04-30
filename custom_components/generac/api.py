@@ -56,15 +56,26 @@ class GeneracApiClient:
     async def get_device_data(self) -> dict[str, Item] | None:
         apparatuses = await self.get_endpoint("/Apparatus/list")
         if apparatuses is None:
-            _LOGGER.debug("Could not decode apparatuses response")
-            return None
+            # Decode failure on /Apparatus/list — surface as a poll
+            # failure rather than treating it as "fleet has zero devices".
+            raise IOError("Failed to decode /Apparatus/list response")
         if not isinstance(apparatuses, list):
-            _LOGGER.error("Expected list from /Apparatus/list got %s", apparatuses)
-            return {}
+            raise IOError(
+                f"Expected list from /Apparatus/list, got {type(apparatuses).__name__}: "
+                f"{str(apparatuses)[:200]}"
+            )
 
         data: dict[str, Item] = {}
         for raw in apparatuses:
-            apparatus = from_dict(Apparatus, raw)
+            try:
+                apparatus = from_dict(Apparatus, raw)
+            except Exception as ex:
+                _LOGGER.warning(
+                    "Skipping malformed apparatus entry: %s (raw=%s)",
+                    ex,
+                    str(raw)[:200],
+                )
+                continue
             if apparatus.type not in ALLOWED_DEVICES:
                 _LOGGER.debug(
                     "Unknown apparatus type %s %s", apparatus.type, apparatus.name
@@ -80,7 +91,15 @@ class GeneracApiClient:
                     apparatus.apparatusId,
                 )
                 continue
-            detail = from_dict(ApparatusDetail, detail_json)
+            try:
+                detail = from_dict(ApparatusDetail, detail_json)
+            except Exception as ex:
+                _LOGGER.warning(
+                    "Skipping apparatus %s due to malformed detail payload: %s",
+                    apparatus.apparatusId,
+                    ex,
+                )
+                continue
             data[str(apparatus.apparatusId)] = Item(apparatus, detail)
         return data
 
@@ -96,25 +115,34 @@ class GeneracApiClient:
             "User-Agent": USER_AGENT_API,
         }
 
+        url = API_BASE + endpoint
         try:
-            response = await self._session.get(API_BASE + endpoint, headers=headers)
-            if response.status == 204:
-                return None
+            async with self._session.get(url, headers=headers) as response:
+                if response.status == 204:
+                    return None
 
-            if response.status == 401:
-                raise SessionExpiredException(
-                    f"API returned 401 for {endpoint}"
-                )
+                if response.status == 401:
+                    raise SessionExpiredException(
+                        f"API returned 401 for {endpoint}"
+                    )
 
-            if response.status != 200:
-                raise SessionExpiredException(
-                    f"API returned status code: {response.status}"
-                )
+                if response.status != 200:
+                    body = ""
+                    try:
+                        body = (await response.text())[:200]
+                    except Exception:
+                        pass
+                    raise SessionExpiredException(
+                        f"API returned status code {response.status} for "
+                        f"{endpoint}: {body}"
+                    )
 
-            data = await response.json()
-            _LOGGER.debug("getEndpoint %s", json.dumps(data))
-            return data
+                data = await response.json()
+                _LOGGER.debug("getEndpoint %s", json.dumps(data))
+                return data
         except SessionExpiredException:
             raise
         except Exception as ex:
-            raise IOError() from ex
+            raise IOError(
+                f"GET {url} failed: {type(ex).__name__}: {ex}"
+            ) from ex

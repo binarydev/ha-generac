@@ -51,6 +51,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.error("Failed to load stored credentials: %s", ex)
         raise ConfigEntryAuthFailed("Stored credentials are unreadable") from ex
 
+    async def _persist_rt(new_rt: str) -> None:
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_REFRESH_TOKEN: new_rt}
+        )
+
+    auth.set_refresh_token_persist_callback(_persist_rt)
+
     client = GeneracApiClient(session, auth)
     coordinator = GeneracDataUpdateCoordinator(hass, client=client, config_entry=entry)
     try:
@@ -59,6 +66,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         raise ConfigEntryAuthFailed(str(ex)) from ex
     except InvalidGrantError as ex:
         raise ConfigEntryAuthFailed(str(ex)) from ex
+    except (ConfigEntryAuthFailed, ConfigEntryNotReady):
+        # Let HA handle these — the coordinator already raises the right
+        # one. Wrapping them in ConfigEntryNotReady would mask reauth.
+        raise
     except Exception as ex:
         raise ConfigEntryNotReady from ex
 
@@ -68,7 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    entry.add_update_listener(async_reload_entry)
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
 
 

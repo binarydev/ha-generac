@@ -22,7 +22,9 @@ from .const import CONF_DPOP_PEM
 from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
 from .const import CONF_REFRESH_TOKEN
+from .const import CONF_SCAN_INTERVAL
 from .const import CONF_USERNAME
+from .const import DEFAULT_SCAN_INTERVAL
 from .const import DOMAIN
 from .utils import async_client_session
 
@@ -93,23 +95,40 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             email = user_input[CONF_USERNAME]
             password = user_input[CONF_PASSWORD]
+            scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
             entry_data, error = await self._try_login(email, password)
             if error is None:
+                # Persist polling interval into entry.options so the
+                # coordinator picks it up the same way the OptionsFlow
+                # does.
+                new_options = {
+                    **(entry.options or {}),
+                    CONF_SCAN_INTERVAL: int(scan_interval),
+                }
                 return self.async_update_reload_and_abort(
                     entry,
                     data={**entry.data, **entry_data},
+                    options=new_options,
                     reason="Reconfigure Successful",
                 )
             errors["base"] = error
 
         default_email = entry.data.get(CONF_USERNAME, "") if entry else ""
+        default_scan_interval = (
+            (entry.options or {}).get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            if entry
+            else DEFAULT_SCAN_INTERVAL
+        )
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_USERNAME, default=default_email): str,
                     vol.Required(CONF_PASSWORD): str,
+                    vol.Required(
+                        CONF_SCAN_INTERVAL, default=default_scan_interval
+                    ): int,
                 }
             ),
             errors=errors,
@@ -133,8 +152,12 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         default_email = entry.data.get(CONF_USERNAME) or entry.title or ""
 
         if user_input is not None:
-            email = user_input[CONF_USERNAME]
             password = user_input[CONF_PASSWORD]
+            # Reauth is bound to the entry's existing email; users who
+            # need a different account must remove and re-add the
+            # integration. This prevents silently rebinding the entry
+            # (and all its entities) to a different Generac account.
+            email = default_email
 
             entry_data, error = await self._try_login(email, password)
             if error is None:
@@ -149,7 +172,6 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_USERNAME, default=default_email): str,
                     vol.Required(CONF_PASSWORD): str,
                 }
             ),
