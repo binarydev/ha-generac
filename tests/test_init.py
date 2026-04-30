@@ -118,3 +118,65 @@ async def test_unload_entry_failed(hass: HomeAssistant, bypass_get_data):
     ):
         assert not await async_unload_entry(hass, config_entry)
         assert config_entry.entry_id in hass.data[DOMAIN]
+
+
+async def test_setup_entry_persist_callback_registered(hass, bypass_get_data):
+    """Setup wires the entry-update persist callback into GeneracAuth."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=_make_mock_config(), entry_id="test"
+    )
+    config_entry.add_to_hass(hass)
+
+    captured = {}
+
+    def fake_from_storage(session, refresh_token, pem_str, email=None):
+        auth = type("FakeAuth", (), {})()
+        auth.set_refresh_token_persist_callback = lambda cb: captured.setdefault(
+            "cb", cb
+        )
+        return auth
+
+    with patch(
+        "custom_components.generac.GeneracAuth.from_storage",
+        side_effect=fake_from_storage,
+    ):
+        assert await async_setup_entry(hass, config_entry)
+    assert callable(captured.get("cb"))
+
+
+async def test_setup_entry_invalid_credentials_raises_auth_failed(hass):
+    """First refresh raising InvalidCredentialsException → ConfigEntryAuthFailed."""
+    from custom_components.generac.api import InvalidCredentialsException
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=_make_mock_config(), entry_id="test"
+    )
+    config_entry.add_to_hass(hass)
+
+    async def boom(self):
+        raise InvalidCredentialsException("nope")
+
+    with patch(
+        "custom_components.generac.coordinator.GeneracDataUpdateCoordinator.async_config_entry_first_refresh",
+        boom,
+    ), pytest.raises(ConfigEntryAuthFailed):
+        await async_setup_entry(hass, config_entry)
+
+
+async def test_setup_entry_invalid_grant_raises_auth_failed(hass):
+    """First refresh raising InvalidGrantError → ConfigEntryAuthFailed."""
+    from custom_components.generac.auth import InvalidGrantError
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=_make_mock_config(), entry_id="test"
+    )
+    config_entry.add_to_hass(hass)
+
+    async def boom(self):
+        raise InvalidGrantError("revoked")
+
+    with patch(
+        "custom_components.generac.coordinator.GeneracDataUpdateCoordinator.async_config_entry_first_refresh",
+        boom,
+    ), pytest.raises(ConfigEntryAuthFailed):
+        await async_setup_entry(hass, config_entry)

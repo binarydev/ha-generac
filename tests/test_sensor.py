@@ -270,3 +270,19 @@ async def test_propane_monitor_sensors(hass):
 
     sensor = DeviceTypeSensor(coordinator, entry, "12345", item)
     assert sensor.native_value == "lte-tankutility-v2"
+
+
+async def test_safe_float_handles_none_and_invalid(hass):
+    """Bad sensor values (None, 'N/A', non-numeric) yield None instead of crashing."""
+    coordinator = MagicMock()
+    entry = MagicMock()
+    item = get_mock_item(DEVICE_TYPE_GENERATOR, 1)
+    item.apparatusDetail.properties = [
+        MagicMock(type=71, value=None),
+        MagicMock(type=32, value="N/A"),
+        MagicMock(type=70, value="not-a-number"),
+    ]
+
+    assert RunTimeSensor(coordinator, entry, "12345", item).native_value is None
+    assert ProtectionTimeSensor(coordinator, entry, "12345", item).native_value is None
+    assert BatteryVoltageSensor(coordinator, entry, "12345", item).native_value is None

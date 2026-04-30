@@ -54,3 +54,26 @@ async def test_entity(hass):
     entity._handle_coordinator_update()
     assert entity.item == new_item
     assert entity.async_write_ha_state.called
+
+
+async def test_entity_missing_device_falls_back_to_empty_item(hass):
+    """If a device disappears from coordinator.data the entity stays alive but unavailable."""
+    from custom_components.generac.entity import _EMPTY_ITEM
+
+    coordinator = MagicMock()
+    coordinator.is_online = True
+    entry = MagicMock()
+    entry.entry_id = "test_entry_id"
+
+    item = get_mock_item()
+    entity = GeneracEntity(coordinator, entry, "12345", item)
+    entity.hass = hass
+    entity.async_write_ha_state = MagicMock()
+
+    # Simulate a coordinator refresh where this device is no longer reported.
+    coordinator.data = {}
+    entity._handle_coordinator_update()
+
+    assert entity.item is _EMPTY_ITEM
+    assert entity.available is False
+    assert entity.async_write_ha_state.called

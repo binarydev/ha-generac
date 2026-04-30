@@ -247,3 +247,95 @@ async def test_reauth_flow(hass: HomeAssistant) -> None:
     assert result2["type"] == "abort"
     assert result2["reason"] == "reauth_successful"
     assert entry.data[CONF_REFRESH_TOKEN] == "fresh-rt"
+
+
+async def test_reauth_flow_locks_email_to_entry(hass: HomeAssistant) -> None:
+    """Reauth re-uses the entry's stored email even if user-supplied data has none."""
+    pem = DPoPKey.generate().to_pem_str()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="locked@example.com",
+        data={
+            CONF_USERNAME: "locked@example.com",
+            CONF_REFRESH_TOKEN: "stale-rt",
+            CONF_DPOP_PEM: pem,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reauth", "entry_id": entry.entry_id},
+        data=entry.data,
+    )
+    assert result["step_id"] == "reauth_confirm"
+
+    new_auth = _mock_auth(refresh_token="fresh-rt", email="locked@example.com")
+    login_mock = AsyncMock(return_value=new_auth)
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        login_mock,
+    ), patch("custom_components.generac.async_setup_entry", return_value=True):
+        await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_PASSWORD: "new-pw"},
+        )
+        await hass.async_block_till_done()
+
+    # login() must have been called with the entry's stored email, not anything user-supplied.
+    assert login_mock.await_count == 1
+    call_args = login_mock.await_args
+    # email is the 2nd positional arg in GeneracAuth.login(session, email, password, ...)
+    args = call_args.args
+    kwargs = call_args.kwargs
+    if len(args) >= 2:
+        used_email = args[1]
+    else:
+        used_email = kwargs.get("email")
+    assert used_email == "locked@example.com"
+
+
+async def test_reconfigure_flow_persists_scan_interval(hass: HomeAssistant) -> None:
+    """Scan interval supplied during reconfigure ends up in entry.options."""
+    from custom_components.generac.const import CONF_SCAN_INTERVAL
+
+    pem = DPoPKey.generate().to_pem_str()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_REFRESH_TOKEN: "old-rt",
+            CONF_DPOP_PEM: pem,
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    with patch("custom_components.generac.async_setup_entry", return_value=True):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": entry.entry_id},
+    )
+    assert result["step_id"] == "reconfigure"
+
+    new_auth = _mock_auth(refresh_token="new-rt")
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=new_auth),
+    ), patch("custom_components.generac.async_setup_entry", return_value=True), patch(
+        "custom_components.generac.async_unload_entry", return_value=True
+    ):
+        await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "new-pw",
+                CONF_SCAN_INTERVAL: 600,
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert entry.options.get(CONF_SCAN_INTERVAL) == 600
