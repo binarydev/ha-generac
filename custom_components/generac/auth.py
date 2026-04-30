@@ -415,6 +415,12 @@ class GeneracAuth:
         auth = cls(session, refresh_token, key, email=email)
         auth._access_token = tokens["access_token"]
         auth._access_token_exp = time.time() + int(tokens.get("expires_in", 0))
+        _LOGGER.info(
+            "Login OK: expires_in=%s scope=%s token_type=%s",
+            tokens.get("expires_in"),
+            tokens.get("scope"),
+            tokens.get("token_type"),
+        )
         return auth
 
     @classmethod
@@ -496,6 +502,12 @@ class GeneracAuth:
         if status == 200:
             self._access_token = payload["access_token"]
             self._access_token_exp = time.time() + int(payload.get("expires_in", 0))
+            _LOGGER.info(
+                "Token refresh OK: expires_in=%s scope=%s token_type=%s",
+                payload.get("expires_in"),
+                payload.get("scope"),
+                payload.get("token_type"),
+            )
             # Auth0 rotation is OFF for this client, but be defensive: if
             # the server ever does rotate, capture the new RT.
             new_rt = payload.get("refresh_token")
