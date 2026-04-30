@@ -1,4 +1,5 @@
 """Image platform for generac."""
+
 import mimetypes
 
 import httpx
@@ -62,7 +63,7 @@ class HeroImageSensor(GeneracEntity, ImageEntity):
         resp = await super()._fetch_url(url)
         if (
             resp is not None
-            and "image" not in resp.headers.get("content-type")
+            and "image" not in (resp.headers.get("content-type") or "")
             and self.aparatus_detail.heroImageUrl
         ):
             guess = mimetypes.guess_type(self.aparatus_detail.heroImageUrl)[0]

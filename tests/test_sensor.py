@@ -1,4 +1,5 @@
 """Test the Generac sensor platform."""
+
 from unittest.mock import MagicMock
 
 from custom_components.generac.const import DEVICE_TYPE_GENERATOR
@@ -102,16 +103,18 @@ def get_mock_item(
                 MagicMock(type=11, value=last_reading_date),
                 MagicMock(type=17, value=battery_level),
             ],
-            weather=Weather(
-                temperature=Weather.Temperature(
-                    value=outdoor_temperature,
-                    unit=outdoor_temperature_unit,
-                    unitType=outdoor_temperature_unit_type,
-                ),
-                iconCode=weather_icon_code,
-            )
-            if outdoor_temperature is not None
-            else None,
+            weather=(
+                Weather(
+                    temperature=Weather.Temperature(
+                        value=outdoor_temperature,
+                        unit=outdoor_temperature_unit,
+                        unitType=outdoor_temperature_unit_type,
+                    ),
+                    iconCode=weather_icon_code,
+                )
+                if outdoor_temperature is not None
+                else None
+            ),
         ),
     )
 
@@ -267,3 +270,19 @@ async def test_propane_monitor_sensors(hass):
 
     sensor = DeviceTypeSensor(coordinator, entry, "12345", item)
     assert sensor.native_value == "lte-tankutility-v2"
+
+
+async def test_safe_float_handles_none_and_invalid(hass):
+    """Bad sensor values (None, 'N/A', non-numeric) yield None instead of crashing."""
+    coordinator = MagicMock()
+    entry = MagicMock()
+    item = get_mock_item(DEVICE_TYPE_GENERATOR, 1)
+    item.apparatusDetail.properties = [
+        MagicMock(type=71, value=None),
+        MagicMock(type=32, value="N/A"),
+        MagicMock(type=70, value="not-a-number"),
+    ]
+
+    assert RunTimeSensor(coordinator, entry, "12345", item).native_value is None
+    assert ProtectionTimeSensor(coordinator, entry, "12345", item).native_value is None
+    assert BatteryVoltageSensor(coordinator, entry, "12345", item).native_value is None
