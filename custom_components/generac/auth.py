@@ -23,6 +23,7 @@ import base64
 import hashlib
 import json
 import logging
+import re
 import secrets
 import time
 import urllib.parse
@@ -208,6 +209,14 @@ async def _authorize(
         if resp.status not in (302, 303):
             raise RuntimeError(f"/authorize: expected redirect, got {resp.status}")
         loc = resp.headers["Location"]
+        set_cookies = resp.headers.getall("Set-Cookie", [])
+    cookie_names = sorted(c.key for c in session.cookie_jar)
+    _LOGGER.debug(
+        "/authorize -> 302 %s set-cookie-count=%d jar-after=%s",
+        loc[:120],
+        len(set_cookies),
+        cookie_names,
+    )
     qs = urllib.parse.parse_qs(urllib.parse.urlparse(loc).query)
     if "state" not in qs:
         raise RuntimeError(f"/authorize: no state in redirect: {loc}")
@@ -224,16 +233,30 @@ async def _post_login_form(
         "Origin": f"https://{AUTH0_DOMAIN}",
         "Referer": f"{url}?state={state}",
     }
+    body = urllib.parse.urlencode(form)
     async with session.post(
         url,
         params={"state": state},
-        data=form,
+        data=body,
         headers=headers,
         allow_redirects=False,
     ) as resp:
         if resp.status not in (302, 303):
             text = await resp.text()
-            raise RuntimeError(f"POST {url} -> {resp.status}: {text[:200]}")
+            # Auth0 ULP renders field-level errors as
+            #   class="ulp-input-error-message" data-error-code="<code>"
+            # Surface the first code so the user sees a meaningful reason
+            # instead of a bare HTTP 400.
+            m = re.search(r'data-error-code="([^"]+)"', text)
+            code = m.group(1) if m else None
+            _LOGGER.warning(
+                "POST %s -> %s; auth0 error code=%s", url, resp.status, code
+            )
+            if code:
+                raise RuntimeError(
+                    f"POST {url} -> {resp.status}: {code}"
+                )
+            raise RuntimeError(f"POST {url} -> {resp.status}")
         return resp.headers["Location"]
 
 
@@ -362,16 +385,28 @@ class GeneracAuth:
     async def login(
         cls, session: aiohttp.ClientSession, email: str, password: str
     ) -> "GeneracAuth":
-        """Run the full Auth0 universal-login flow and return a ready instance."""
+        """Run the full Auth0 universal-login flow and return a ready instance.
+
+        The Auth0 universal-login flow is stateful: /authorize sets a session
+        cookie that /u/login/identifier and /u/login/password require. Some
+        shared sessions disable cookie quoting or scrub cookies between calls,
+        which breaks the handshake. Use a dedicated cookie-jar-backed session
+        for the login flow only; the long-lived `session` is reused afterward
+        for refresh-token rotation, which doesn't depend on cookies.
+        """
         key = DPoPKey.generate()
         verifier, challenge = _make_pkce()
         state = _b64url(secrets.token_bytes(32))
 
-        login_state = await _authorize(session, key, state, challenge)
-        pw_state = await _identifier_step(session, login_state, email)
-        resume_state = await _password_step(session, pw_state, email, password)
-        code = await _resume_to_code(session, resume_state)
-        tokens = await _exchange_code(session, key, code, verifier)
+        jar = aiohttp.CookieJar(unsafe=True)
+        async with aiohttp.ClientSession(cookie_jar=jar) as login_session:
+            login_state = await _authorize(login_session, key, state, challenge)
+            pw_state = await _identifier_step(login_session, login_state, email)
+            resume_state = await _password_step(
+                login_session, pw_state, email, password
+            )
+            code = await _resume_to_code(login_session, resume_state)
+            tokens = await _exchange_code(login_session, key, code, verifier)
 
         refresh_token = tokens.get("refresh_token")
         if not refresh_token:

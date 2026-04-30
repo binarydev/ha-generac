@@ -123,13 +123,17 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input=None):
-        """Collect a fresh password to mint new credentials."""
+        """Collect fresh credentials to mint new tokens."""
         errors: dict[str, str] = {}
         entry = self._reauth_entry
         assert entry is not None
-        email = entry.data.get(CONF_USERNAME, "")
+        # Older config entries may not have stored email under CONF_USERNAME,
+        # so fall back to the entry title (which we set to the email at
+        # create time).
+        default_email = entry.data.get(CONF_USERNAME) or entry.title or ""
 
         if user_input is not None:
+            email = user_input[CONF_USERNAME]
             password = user_input[CONF_PASSWORD]
 
             entry_data, error = await self._try_login(email, password)
@@ -143,8 +147,13 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
-            description_placeholders={"username": email},
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME, default=default_email): str,
+                    vol.Required(CONF_PASSWORD): str,
+                }
+            ),
+            description_placeholders={"username": default_email},
             errors=errors,
         )
 
