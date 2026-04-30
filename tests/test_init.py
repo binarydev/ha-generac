@@ -1,5 +1,4 @@
 """Test generac setup process."""
-
 from unittest.mock import patch
 
 import pytest
@@ -140,7 +139,8 @@ async def test_setup_entry_persist_callback_registered(hass, bypass_get_data):
         "custom_components.generac.GeneracAuth.from_storage",
         side_effect=fake_from_storage,
     ):
-        assert await async_setup_entry(hass, config_entry)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
     assert callable(captured.get("cb"))
 
 
