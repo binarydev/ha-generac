@@ -1,78 +1,70 @@
-"""Generac API Client."""
+"""Generac MobileLink API client.
+
+The API itself is plain HTTPS + Bearer auth — no DPoP at this layer.
+The Bearer token comes from `GeneracAuth`, which mints fresh access
+tokens by exercising a DPoP-bound refresh_token against Auth0.
+
+API versioning: `/api/v1`, `/api/v2`, and `/api/v5` were all observed
+returning identical payloads for the endpoints we use. The iOS app uses
+`/api/v5`; we follow suit for futureproofing.
+"""
 import json
 import logging
 
 import aiohttp
 from dacite import from_dict
 
-from .const import ALLOWED_DEVICES
+from .auth import GeneracAuth, InvalidGrantError, USER_AGENT_API
+from .const import ALLOWED_DEVICES, API_BASE
 from .models import Apparatus
 from .models import ApparatusDetail
 from .models import Item
 
-API_BASE = "https://app.mobilelinkgen.com/api"
-LOGIN_BASE = "https://generacconnectivity.b2clogin.com/generacconnectivity.onmicrosoft.com/B2C_1A_MobileLink_SignIn"
-
 TIMEOUT = 10
-
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 
 class InvalidCredentialsException(Exception):
-    pass
+    """Credentials supplied by the user were rejected."""
 
 
 class SessionExpiredException(Exception):
-    pass
+    """The current access token / refresh token is no longer valid."""
 
 
 class GeneracApiClient:
+    """HTTP client for the MobileLink API.
+
+    The client owns the lifetime of the underlying auth handle's access
+    token but does NOT persist anything; persistence happens at the
+    ConfigEntry layer in `__init__.py`.
+    """
+
     def __init__(
         self,
         session: aiohttp.ClientSession,
-        username: str,
-        password: str,
-        session_cookie: str,
+        auth: GeneracAuth,
     ) -> None:
-        """Sample API Client."""
-        self._username = username
-        self._password = password
         self._session = session
-        self._session_cookie = session_cookie
-        self._logged_in = False
-        self.csrf = ""
-        # Below is the login fix from https://github.com/bentekkie/ha-generac/pull/140
-        self._headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-        }
+        self._auth = auth
 
     async def async_get_data(self) -> dict[str, Item] | None:
-        """Get data from the API."""
-        if self._session_cookie:
-            self._headers["Cookie"] = self._session_cookie
-            self._logged_in = True
-        else:
-            self._logged_in = False
-            _LOGGER.error("No session cookie provided, cannot login")
-            raise InvalidCredentialsException("No session cookie provided")
+        """Top-level entry point used by the coordinator."""
         return await self.get_device_data()
 
-    async def get_device_data(self):
-        apparatuses = await self.get_endpoint("/v2/Apparatus/list")
+    async def get_device_data(self) -> dict[str, Item] | None:
+        apparatuses = await self.get_endpoint("/Apparatus/list")
         if apparatuses is None:
             _LOGGER.debug("Could not decode apparatuses response")
             return None
         if not isinstance(apparatuses, list):
-            _LOGGER.error("Expected list from /v2/Apparatus/list got %s", apparatuses)
+            _LOGGER.error("Expected list from /Apparatus/list got %s", apparatuses)
+            return {}
 
         data: dict[str, Item] = {}
-        for apparatus in apparatuses:
-            apparatus = from_dict(Apparatus, apparatus)
+        for raw in apparatuses:
+            apparatus = from_dict(Apparatus, raw)
             if apparatus.type not in ALLOWED_DEVICES:
                 _LOGGER.debug(
                     "Unknown apparatus type %s %s", apparatus.type, apparatus.name
@@ -80,11 +72,12 @@ class GeneracApiClient:
                 continue
 
             detail_json = await self.get_endpoint(
-                f"/v1/Apparatus/details/{apparatus.apparatusId}"
+                f"/Apparatus/details/{apparatus.apparatusId}"
             )
             if detail_json is None:
                 _LOGGER.debug(
-                    f"Could not decode respose from /v1/Apparatus/details/{apparatus.apparatusId}"
+                    "Could not decode response from /Apparatus/details/%s",
+                    apparatus.apparatusId,
                 )
                 continue
             detail = from_dict(ApparatusDetail, detail_json)
@@ -93,18 +86,29 @@ class GeneracApiClient:
 
     async def get_endpoint(self, endpoint: str):
         try:
-            headers = {**self._headers}
-            if self.csrf:
-                headers["X-Csrf-Token"] = self.csrf
+            access_token = await self._auth.ensure_access_token()
+        except InvalidGrantError as ex:
+            raise InvalidCredentialsException(str(ex)) from ex
 
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+            "User-Agent": USER_AGENT_API,
+        }
+
+        try:
             response = await self._session.get(API_BASE + endpoint, headers=headers)
             if response.status == 204:
-                # no data
                 return None
+
+            if response.status == 401:
+                raise SessionExpiredException(
+                    f"API returned 401 for {endpoint}"
+                )
 
             if response.status != 200:
                 raise SessionExpiredException(
-                    "API returned status code: %s " % response.status
+                    f"API returned status code: {response.status}"
                 )
 
             data = await response.json()

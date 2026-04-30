@@ -2,17 +2,21 @@
 Custom integration to integrate generac with Home Assistant.
 
 For more details about this integration, please refer to
-https://github.com/binarydev/generac
+https://github.com/binarydev/ha-generac
 """
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import GeneracApiClient
-from .const import CONF_PASSWORD
-from .const import CONF_SESSION_COOKIE
+from .api import InvalidCredentialsException
+from .auth import GeneracAuth
+from .auth import InvalidGrantError
+from .const import CONF_DPOP_PEM
+from .const import CONF_REFRESH_TOKEN
 from .const import CONF_USERNAME
 from .const import DOMAIN
 from .const import PLATFORMS
@@ -29,18 +33,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data.setdefault(DOMAIN, {})
         _LOGGER.info(STARTUP_MESSAGE)
 
-    username = entry.data.get(CONF_USERNAME, "")
-    password = entry.data.get(CONF_PASSWORD, "")
-    session_cookie = entry.data.get(CONF_SESSION_COOKIE, "")
+    refresh_token = entry.data.get(CONF_REFRESH_TOKEN)
+    pem_str = entry.data.get(CONF_DPOP_PEM)
+    email = entry.data.get(CONF_USERNAME)
+
+    if not refresh_token or not pem_str:
+        # Either a fresh v1->v2 migration with stripped data, or
+        # somehow the credentials were lost. Either way, reauth.
+        raise ConfigEntryAuthFailed("Missing refresh token or DPoP key")
 
     session = await async_client_session(hass)
-    client = GeneracApiClient(session, username, password, session_cookie)
+    try:
+        auth = GeneracAuth.from_storage(
+            session, refresh_token, pem_str, email=email
+        )
+    except Exception as ex:
+        _LOGGER.error("Failed to load stored credentials: %s", ex)
+        raise ConfigEntryAuthFailed("Stored credentials are unreadable") from ex
 
+    client = GeneracApiClient(session, auth)
     coordinator = GeneracDataUpdateCoordinator(hass, client=client, config_entry=entry)
     try:
         await coordinator.async_config_entry_first_refresh()
-    except Exception as e:
-        raise ConfigEntryNotReady from e
+    except InvalidCredentialsException as ex:
+        raise ConfigEntryAuthFailed(str(ex)) from ex
+    except InvalidGrantError as ex:
+        raise ConfigEntryAuthFailed(str(ex)) from ex
+    except Exception as ex:
+        raise ConfigEntryNotReady from ex
 
     if not coordinator.last_update_success:
         raise ConfigEntryNotReady
@@ -57,7 +77,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         hass.data[DOMAIN].pop(entry.entry_id)
-
     return unloaded
 
 

@@ -2,21 +2,37 @@
   "config": {
     "step": {
       "user": {
-        "title": "generac",
-        "description": "If you need help with the configuration have a look here: github.com/binarydev/ha-generac",
+        "title": "Generac MobileLink",
+        "description": "Sign in with your Mobile Link account.",
         "data": {
-          "username": "Username",
-          "password": "Password",
-          "session_cookie": "Session Cookie"
+          "username": "Email",
+          "password": "Password"
+        }
+      },
+      "reconfigure": {
+        "title": "Generac MobileLink",
+        "description": "Re-enter your Mobile Link credentials.",
+        "data": {
+          "username": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Generac MobileLink",
+        "description": "The session for {username} has expired. Enter your password to refresh it.",
+        "data": {
+          "password": "Password"
         }
       }
     },
     "error": {
-      "auth": "Username/Password is wrong.",
-      "internal": "Internal Error, file an issue at github.com/binarydev/ha-generac."
+      "auth": "Invalid email or password.",
+      "internal": "Unexpected error. File an issue at github.com/binarydev/ha-generac."
     },
     "abort": {
-      "single_instance_allowed": "Only a single instance is allowed."
+      "single_instance_allowed": "Only a single instance is allowed.",
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "Re-authentication successful."
     }
   },
   "options": {
