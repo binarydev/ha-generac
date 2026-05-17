@@ -24,14 +24,12 @@ def mock_session():
 @pytest.fixture
 def client(mock_session):
     """Fixture for GeneracApiClient."""
-    return GeneracApiClient(mock_session, "test_user", "test_pass", "test_cookie")
+    return GeneracApiClient(mock_session, "test_cookie")
 
 
 async def test_init(mock_session):
     """Test the __init__ method."""
-    client = GeneracApiClient(mock_session, "test_user", "test_pass", "test_cookie")
-    assert client._username == "test_user"
-    assert client._password == "test_pass"
+    client = GeneracApiClient(mock_session, "test_cookie")
     assert client._session == mock_session
     assert client._session_cookie == "test_cookie"
     assert client._logged_in is False

@@ -75,6 +75,47 @@ Using Username+Password to login has been removed (for now), due to Generac bloc
 
 <!---->
 
+## Auto-login (AUTO_MINT mode, optional)
+
+ha-generac can mint session cookies for you instead of requiring periodic
+DevTools cookie-fishing. To enable:
+
+1. Open the integration's **Reconfigure** dialog
+2. Enter your MobileLink email and password (the cookie field becomes optional)
+3. Submit — on first use, the integration installs `curl_cffi` (Chrome TLS
+   impersonation, required to make MobileLink believe a human is logging in).
+   This adds 30–60 seconds to the first login attempt.
+
+After setup, ha-generac re-mints the cookie automatically:
+- **Proactively** when the current cookie is older than 5 days
+- **Reactively** if the API ever returns 401 / 403
+
+To switch back to manual cookie-paste mode: open Reconfigure, clear the
+email field, and paste a cookie.
+
+### Supported platforms
+
+Auto-login requires `curl_cffi`, which ships pre-built wheels for:
+
+- x86_64 (most HA OS / HA Container installs)
+- aarch64 (Raspberry Pi 4 / Pi 5 on 64-bit OS)
+- macOS (HA Core development)
+
+armv7 (Raspberry Pi 0–3 on 32-bit OS) and other unusual platforms lack
+`curl_cffi` wheels — on those, auto-login is unavailable and the
+integration falls back to the existing cookie-paste mode. The integration
+itself still installs and runs.
+
+### If auto-login stops working
+
+If you start seeing errors for blocked logins when repairing the integration
+after it can't retrieve new cookies, you may need to update the **Chrome impersonation profile**
+to a newer value (e.g. `chrome124`). See `scripts/README.md` for the list.
+
+### Design
+
+Full design: `docs/superpowers/specs/2026-05-16-generac-auto-login-integration-design.md`.
+
 ## Contributions are welcome!
 
 If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)

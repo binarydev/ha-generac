@@ -60,13 +60,6 @@ class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
         """Return True if entity is available."""
         return self.coordinator.is_online and not self.item.empty
 
-    async def async_added_to_hass(self) -> None:
-        """Connect to dispatcher listening for entity data notifications."""
-        await super().async_added_to_hass()
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
-        )
-
     @property
     def aparatus(self) -> Apparatus:
         return self.item.apparatus

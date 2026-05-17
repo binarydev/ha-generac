@@ -1,4 +1,8 @@
 """Constants for generac."""
+from datetime import timedelta
+
+from homeassistant.helpers import selector
+
 # Base component constants
 NAME = "generac"
 DOMAIN = "generac"
@@ -37,10 +41,34 @@ PLATFORMS = [BINARY_SENSOR, SENSOR, WEATHER, IMAGE]
 
 # Configuration labels
 CONF_ENABLED = "enabled"
-CONF_USERNAME = "username"
-CONF_PASSWORD = "password"
 CONF_SESSION_COOKIE = "session_cookie"
 CONF_SCAN_INTERVAL = "scan_interval"
+
+# Auto-login (added in 0.5.0)
+CONF_EMAIL = "email"
+CONF_AUTH_PASSWORD = "auth_password"
+CONF_DEVICE_COOKIES = "device_cookies"
+CONF_COOKIE_MINTED_AT = "cookie_minted_at"
+CONF_IMPERSONATE_PROFILE = "impersonate_profile"
+
+# Cookie lifecycle (epoch seconds compared via time.time())
+COOKIE_NOMINAL_TTL = timedelta(days=7)          # observed; documentation only
+REMINT_THRESHOLD = timedelta(days=5)            # mint when older than this
+MINT_COOLDOWN = timedelta(minutes=10)           # post-failure backoff
+MINT_FAIL_LIMIT = 3                              # consecutive failures → reauth
+
+DEFAULT_IMPERSONATE = "chrome120"
+
+# Known curl_cffi==0.7.4 Chrome impersonation profiles. Limits the
+# Options field to valid values so a typo surfaces at form-submit
+# rather than as a confusing ImpersonationError on the next mint.
+# When curl_cffi is upgraded, update this list — keep it in sync with
+# scripts/README.md.
+IMPERSONATE_PROFILES = [
+    "chrome99", "chrome100", "chrome101", "chrome104", "chrome107",
+    "chrome110", "chrome116", "chrome119", "chrome120", "chrome123",
+    "chrome124",
+]
 
 # Options
 bool_opts = {}
@@ -49,6 +77,15 @@ for p in PLATFORMS:
 CONF_OPTIONS = {
     **bool_opts,
     CONF_SCAN_INTERVAL: {"type": int, "default": DEFAULT_SCAN_INTERVAL},
+    CONF_IMPERSONATE_PROFILE: {
+        "type": selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=IMPERSONATE_PROFILES,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
+        "default": DEFAULT_IMPERSONATE,
+    },
 }
 
 STARTUP_MESSAGE = f"""

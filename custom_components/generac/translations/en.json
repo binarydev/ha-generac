@@ -3,17 +3,39 @@
     "step": {
       "user": {
         "title": "generac",
-        "description": "If you need help with the configuration have a look here: github.com/binarydev/ha-generac",
         "data": {
-          "username": "Username",
-          "password": "Password",
-          "session_cookie": "Session Cookie"
-        }
+          "email": "MobileLink username (optional — leave blank for cookie-paste mode)",
+          "auth_password": "MobileLink password (optional)",
+          "session_cookie": "Session cookie (paste from browser DevTools)"
+        },
+        "description": "Provide either username + password (auto-login) or paste a session cookie. Auto-login requires curl_cffi (~30-60s one-time install on first use). Need help? See github.com/binarydev/ha-generac."
+      },
+      "reconfigure": {
+        "data": {
+          "email": "MobileLink username",
+          "auth_password": "MobileLink password (leave blank to keep existing)",
+          "session_cookie": "Session cookie"
+        },
+        "description": "To switch back to paste-only mode, paste a fresh session cookie and leave the password blank — stored credentials will be wiped."
+      },
+      "reauth_confirm": {
+        "data": {
+          "email": "MobileLink username",
+          "auth_password": "MobileLink password (leave blank to keep existing)",
+          "session_cookie": "Session cookie"
+        },
+        "description": "Your session has expired. Re-enter your MobileLink password or paste a fresh cookie."
       }
     },
     "error": {
-      "auth": "Username/Password is wrong.",
-      "internal": "Internal Error, file an issue at github.com/binarydev/ha-generac."
+      "auth": "Invalid session cookie.",
+      "internal": "Internal error testing credentials. File an issue at github.com/binarydev/ha-generac.",
+      "bad_credentials": "Email or password rejected by Auth0.",
+      "imperva_block": "Imperva blocked the login. Try a newer Chrome impersonation profile in Options, or paste a cookie manually for now.",
+      "auth_failed": "Auth flow failed.",
+      "curl_cffi_install_failed": "Auto-login unavailable on this platform: failed to install curl_cffi. Paste a session cookie instead.",
+      "password_required_for_email": "Password is required when email is set.",
+      "need_creds_or_cookie": "Provide either email + password or a session cookie."
     },
     "abort": {
       "single_instance_allowed": "Only a single instance is allowed."
@@ -23,14 +45,24 @@
     "step": {
       "user": {
         "data": {
-          "binary_sensor": "Binary sensors enabled",
-          "image": "Image enabled",
-          "scan_interval": "Polling interval (seconds)",
-          "sensor": "Non-binary sensors enabled",
-          "switch": "Switch enabled",
-          "weather": "Weather sensor enabled"
+          "binary_sensor": "Enable binary sensors",
+          "sensor": "Enable sensors",
+          "weather": "Enable weather",
+          "image": "Enable image",
+          "scan_interval": "Scan interval (seconds)",
+          "impersonate_profile": "curl_cffi Chrome impersonation profile (e.g. chrome120, chrome124)"
         }
       }
+    }
+  },
+  "issues": {
+    "curl_cffi_unavailable": {
+      "title": "Generac auto-login unavailable",
+      "description": "curl_cffi could not be installed in this Home Assistant Python environment, so auto-login is disabled for this entry. The integration is using the last-known session cookie. Paste a fresh cookie via Reconfigure when the current one expires."
+    },
+    "imperva_block": {
+      "title": "Generac auto-login blocked by Imperva",
+      "description": "Imperva is blocking the Generac auto-login flow (current Chrome impersonation profile: `{profile}`). Open Options for this integration and try a newer profile (e.g. `chrome124`), or paste a session cookie manually via Reconfigure. See `scripts/README.md` for the available profiles."
     }
   }
 }
