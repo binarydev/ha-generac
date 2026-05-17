@@ -9,21 +9,21 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import GeneracApiClient
-from .auth import GeneracAuthClient, MintResult
-from .installer import CurlCffiInstallError, ensure_curl_cffi
-from .const import (
-    CONF_AUTH_PASSWORD,
-    CONF_COOKIE_MINTED_AT,
-    CONF_DEVICE_COOKIES,
-    CONF_EMAIL,
-    CONF_IMPERSONATE_PROFILE,
-    CONF_SESSION_COOKIE,
-    DEFAULT_IMPERSONATE,
-    DOMAIN,
-    PLATFORMS,
-    STARTUP_MESSAGE,
-)
+from .auth import GeneracAuthClient
+from .auth import MintResult
+from .const import CONF_AUTH_PASSWORD
+from .const import CONF_COOKIE_MINTED_AT
+from .const import CONF_DEVICE_COOKIES
+from .const import CONF_EMAIL
+from .const import CONF_IMPERSONATE_PROFILE
+from .const import CONF_SESSION_COOKIE
+from .const import DEFAULT_IMPERSONATE
+from .const import DOMAIN
+from .const import PLATFORMS
+from .const import STARTUP_MESSAGE
 from .coordinator import GeneracDataUpdateCoordinator
+from .installer import CurlCffiInstallError
+from .installer import ensure_curl_cffi
 from .utils import async_client_session
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -94,7 +94,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 
 def _build_auth_client(
-    hass: HomeAssistant, entry: ConfigEntry, api_client: GeneracApiClient,
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    api_client: GeneracApiClient,
 ) -> GeneracAuthClient:
     """Build a GeneracAuthClient with a persistence callback bound to this entry."""
 

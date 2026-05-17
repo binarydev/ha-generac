@@ -1,6 +1,7 @@
 """Test the Generac config flow."""
 import time as time_mod
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
+from unittest.mock import patch
 
 import pytest
 from custom_components.generac.api import InvalidCredentialsException
@@ -421,7 +422,9 @@ async def test_reauth_bad_credentials_returns_reauth_form(hass: HomeAssistant) -
         )
 
     assert result2["type"] == "form"
-    assert result2["step_id"] == "reauth_confirm"   # reauth keeps its own step_id so reauth translations + dispatch are correct
+    assert (
+        result2["step_id"] == "reauth_confirm"
+    )  # reauth keeps its own step_id so reauth translations + dispatch are correct
     assert result2["errors"] == {"base": "bad_credentials"}
 
 
@@ -434,7 +437,8 @@ async def test_form_paste_only_still_works(hass: HomeAssistant) -> None:
         "custom_components.generac.config_flow.GeneracApiClient.async_get_data",
         return_value=True,
     ), patch(
-        "custom_components.generac.async_setup_entry", return_value=True,
+        "custom_components.generac.async_setup_entry",
+        return_value=True,
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}

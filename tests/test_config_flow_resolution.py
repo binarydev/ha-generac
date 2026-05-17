@@ -1,8 +1,6 @@
 """Unit tests for the gesture-matrix resolution helper in config_flow.py."""
 from __future__ import annotations
 
-import pytest
-
 from custom_components.generac import config_flow as cf
 
 
@@ -32,7 +30,11 @@ class TestResolveMode:
     # Row 1: AUTO_MINT stored, email unchanged, blank password → reuse stored pw
     def test_auto_mint_unchanged_blank_password_reuses_stored(self) -> None:
         result = cf._resolve_mode(
-            form=_form(email="user@example.com", password="", cookie="MobileLinkClientCookie=old"),
+            form=_form(
+                email="user@example.com",
+                password="",
+                cookie="MobileLinkClientCookie=old",
+            ),
             stored=_auto_mint_stored(),
         )
         assert result.mode == "AUTO_MINT"
@@ -42,7 +44,11 @@ class TestResolveMode:
     # Row 2: AUTO_MINT stored, email unchanged, new password → use new pw
     def test_auto_mint_unchanged_new_password_uses_new(self) -> None:
         result = cf._resolve_mode(
-            form=_form(email="user@example.com", password="new-pw", cookie="MobileLinkClientCookie=old"),
+            form=_form(
+                email="user@example.com",
+                password="new-pw",
+                cookie="MobileLinkClientCookie=old",
+            ),
             stored=_auto_mint_stored(),
         )
         assert result.mode == "AUTO_MINT"
@@ -58,7 +64,10 @@ class TestResolveMode:
         assert result.mode == "PASTE_ONLY"
         assert result.error_key is None
         assert set(result.deletions) == {
-            "email", "auth_password", "device_cookies", "cookie_minted_at",
+            "email",
+            "auth_password",
+            "device_cookies",
+            "cookie_minted_at",
         }
 
     # Row 4: AUTO_MINT stored, email cleared, cookie cleared → form error
@@ -73,7 +82,11 @@ class TestResolveMode:
     # Row 5: AUTO_MINT stored, email changed, blank password → form error
     def test_changing_email_without_password_errors(self) -> None:
         result = cf._resolve_mode(
-            form=_form(email="other@example.com", password="", cookie="MobileLinkClientCookie=old"),
+            form=_form(
+                email="other@example.com",
+                password="",
+                cookie="MobileLinkClientCookie=old",
+            ),
             stored=_auto_mint_stored(),
         )
         assert result.mode is None
@@ -116,7 +129,7 @@ class TestResolveMode:
     def test_new_cookie_with_no_password_switches_to_paste_only(self) -> None:
         result = cf._resolve_mode(
             form=_form(
-                email="user@example.com",   # stale form default
+                email="user@example.com",  # stale form default
                 password="",
                 cookie="MobileLinkClientCookie=FRESH-MANUAL-PASTE",
             ),
@@ -126,7 +139,10 @@ class TestResolveMode:
         assert result.effective_password is None
         assert result.error_key is None
         assert set(result.deletions) == {
-            "email", "auth_password", "device_cookies", "cookie_minted_at",
+            "email",
+            "auth_password",
+            "device_cookies",
+            "cookie_minted_at",
         }
 
     # Row 10: AUTO_MINT stored, user resubmits form unchanged → stay
@@ -136,7 +152,7 @@ class TestResolveMode:
             form=_form(
                 email="user@example.com",
                 password="",
-                cookie="MobileLinkClientCookie=old",   # same as stored
+                cookie="MobileLinkClientCookie=old",  # same as stored
             ),
             stored=_auto_mint_stored(),
         )

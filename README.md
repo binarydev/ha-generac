@@ -87,6 +87,7 @@ DevTools cookie-fishing. To enable:
    This adds 30–60 seconds to the first login attempt.
 
 After setup, ha-generac re-mints the cookie automatically:
+
 - **Proactively** when the current cookie is older than 5 days
 - **Reactively** if the API ever returns 401 / 403
 

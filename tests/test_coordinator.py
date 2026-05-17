@@ -4,14 +4,11 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-from custom_components.generac.auth import (
-    AuthError,
-    BadCredentialsError,
-    CurlCffiUnavailableError,
-    ImpervaBlockError,
-)
+from custom_components.generac.auth import AuthError
+from custom_components.generac.auth import BadCredentialsError
+from custom_components.generac.auth import CurlCffiUnavailableError
+from custom_components.generac.auth import ImpervaBlockError
 from custom_components.generac.coordinator import GeneracDataUpdateCoordinator
-from custom_components.generac.installer import CurlCffiInstallError
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
@@ -199,9 +196,7 @@ async def test_coordinator_initial_curl_cffi_failed_creates_issue(hass):
         )
     assert coordinator._curl_cffi_issue_active is True
     mock_create.assert_called_once()
-    assert (
-        mock_create.call_args.kwargs["translation_key"] == "curl_cffi_unavailable"
-    )
+    assert mock_create.call_args.kwargs["translation_key"] == "curl_cffi_unavailable"
 
 
 async def test_coordinator_initial_curl_cffi_default_no_issue(hass):

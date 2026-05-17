@@ -11,27 +11,24 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .api import GeneracApiClient
-from .auth import (
-    AuthError,
-    BadCredentialsError,
-    CurlCffiUnavailableError,
-    GeneracAuthClient,
-    ImpervaBlockError,
-    cookie_is_aging,
-)
-from .const import (
-    CONF_AUTH_PASSWORD,
-    CONF_COOKIE_MINTED_AT,
-    CONF_DEVICE_COOKIES,
-    CONF_EMAIL,
-    CONF_IMPERSONATE_PROFILE,
-    CONF_SCAN_INTERVAL,
-    DEFAULT_IMPERSONATE,
-    DEFAULT_SCAN_INTERVAL,
-    DOMAIN,
-    MINT_FAIL_LIMIT,
-)
-from .installer import CurlCffiInstallError, ensure_curl_cffi
+from .auth import AuthError
+from .auth import BadCredentialsError
+from .auth import cookie_is_aging
+from .auth import CurlCffiUnavailableError
+from .auth import GeneracAuthClient
+from .auth import ImpervaBlockError
+from .const import CONF_AUTH_PASSWORD
+from .const import CONF_COOKIE_MINTED_AT
+from .const import CONF_DEVICE_COOKIES
+from .const import CONF_EMAIL
+from .const import CONF_IMPERSONATE_PROFILE
+from .const import CONF_SCAN_INTERVAL
+from .const import DEFAULT_IMPERSONATE
+from .const import DEFAULT_SCAN_INTERVAL
+from .const import DOMAIN
+from .const import MINT_FAIL_LIMIT
+from .installer import CurlCffiInstallError
+from .installer import ensure_curl_cffi
 from .models import Item
 
 
@@ -118,7 +115,9 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         return True
 
     def _classify_mint_failure(
-        self, exc: AuthError, source: Literal["proactive", "reactive"],
+        self,
+        exc: AuthError,
+        source: Literal["proactive", "reactive"],
     ) -> None:
         """Translate a mint AuthError into the right HA exception.
 
@@ -131,11 +130,10 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         entry = self._config_entry
         if isinstance(exc, BadCredentialsError):
             _LOGGER.error(
-                "%s mint: bad credentials, escalating to reauth", source,
+                "%s mint: bad credentials, escalating to reauth",
+                source,
             )
-            raise ConfigEntryAuthFailed(
-                "Auth0 rejected stored credentials"
-            ) from exc
+            raise ConfigEntryAuthFailed("Auth0 rejected stored credentials") from exc
 
         if isinstance(exc, (CurlCffiInstallError, CurlCffiUnavailableError)):
             _LOGGER.warning("%s mint: curl_cffi unavailable: %s", source, exc)
@@ -150,12 +148,16 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         if isinstance(exc, ImpervaBlockError):
             self._mint_failures += 1
             current_profile = entry.options.get(
-                CONF_IMPERSONATE_PROFILE, DEFAULT_IMPERSONATE,
+                CONF_IMPERSONATE_PROFILE,
+                DEFAULT_IMPERSONATE,
             )
             _LOGGER.warning(
                 "%s mint: Imperva block (%d/%d), profile=%s: %s",
-                source, self._mint_failures, MINT_FAIL_LIMIT,
-                current_profile, exc,
+                source,
+                self._mint_failures,
+                MINT_FAIL_LIMIT,
+                current_profile,
+                exc,
             )
             self._set_imperva_issue(current_profile)
             if self._mint_failures >= MINT_FAIL_LIMIT:
@@ -163,15 +165,16 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
                     f"Imperva block {MINT_FAIL_LIMIT} times in a row "
                     f"(profile={current_profile})"
                 ) from exc
-            raise UpdateFailed(
-                f"{source} mint blocked by Imperva: {exc}"
-            ) from exc
+            raise UpdateFailed(f"{source} mint blocked by Imperva: {exc}") from exc
 
         # Generic AuthError (form drift, unexpected status, etc.)
         self._mint_failures += 1
         _LOGGER.warning(
             "%s mint failed (%d/%d): %s",
-            source, self._mint_failures, MINT_FAIL_LIMIT, exc,
+            source,
+            self._mint_failures,
+            MINT_FAIL_LIMIT,
+            exc,
         )
         if self._mint_failures >= MINT_FAIL_LIMIT:
             raise ConfigEntryAuthFailed(
@@ -198,7 +201,9 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         if not self._imperva_issue_active:
             return
         ir.async_delete_issue(
-            self.hass, DOMAIN, f"imperva_block_{self._config_entry.entry_id}",
+            self.hass,
+            DOMAIN,
+            f"imperva_block_{self._config_entry.entry_id}",
         )
         self._imperva_issue_active = False
 
@@ -219,7 +224,8 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         if not self._curl_cffi_issue_active:
             return
         ir.async_delete_issue(
-            self.hass, DOMAIN,
+            self.hass,
+            DOMAIN,
             f"curl_cffi_unavailable_{self._config_entry.entry_id}",
         )
         self._curl_cffi_issue_active = False

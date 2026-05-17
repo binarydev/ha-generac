@@ -1,4 +1,5 @@
 """Test generac setup process."""
+import time as time_mod
 from unittest.mock import AsyncMock
 from unittest.mock import patch
 
@@ -6,6 +7,7 @@ import pytest
 from custom_components.generac import async_reload_entry
 from custom_components.generac import async_setup_entry
 from custom_components.generac import async_unload_entry
+from custom_components.generac.auth import GeneracAuthClient
 from custom_components.generac.const import DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -77,11 +79,6 @@ async def test_unload_entry_failed(hass: HomeAssistant, bypass_get_data):
         assert config_entry.entry_id in hass.data[DOMAIN]
 
 
-import time as time_mod
-
-from custom_components.generac.auth import GeneracAuthClient
-
-
 MOCK_AUTO_MINT_CONFIG = {
     "session_cookie": "test_cookie",
     "email": "user@example.com",
@@ -94,8 +91,11 @@ MOCK_AUTO_MINT_CONFIG = {
 async def test_setup_auto_mint_wires_auth_client(hass: HomeAssistant, bypass_get_data):
     """AUTO_MINT entry with curl_cffi available -> coordinator gets an auth_client."""
     from unittest.mock import AsyncMock
+
     config_entry = MockConfigEntry(
-        domain=DOMAIN, data=MOCK_AUTO_MINT_CONFIG, entry_id="test_auto_mint",
+        domain=DOMAIN,
+        data=MOCK_AUTO_MINT_CONFIG,
+        entry_id="test_auto_mint",
     )
     config_entry.add_to_hass(hass)
 
@@ -112,14 +112,18 @@ async def test_setup_auto_mint_wires_auth_client(hass: HomeAssistant, bypass_get
 
 
 async def test_setup_auto_mint_without_curl_cffi_degrades(
-    hass: HomeAssistant, bypass_get_data,
+    hass: HomeAssistant,
+    bypass_get_data,
 ):
     """AUTO_MINT entry + curl_cffi unavailable -> no auth_client, repair issue raised,
     integration still loads using stored cookie."""
     from unittest.mock import AsyncMock
     from custom_components.generac.installer import CurlCffiInstallError
+
     config_entry = MockConfigEntry(
-        domain=DOMAIN, data=MOCK_AUTO_MINT_CONFIG, entry_id="test_degraded",
+        domain=DOMAIN,
+        data=MOCK_AUTO_MINT_CONFIG,
+        entry_id="test_degraded",
     )
     config_entry.add_to_hass(hass)
 
@@ -143,14 +147,19 @@ async def test_setup_auto_mint_without_curl_cffi_degrades(
     assert coordinator._curl_cffi_issue_active is True
 
 
-async def test_repair_issue_helpers_are_idempotent(hass: HomeAssistant, bypass_get_data):
+async def test_repair_issue_helpers_are_idempotent(
+    hass: HomeAssistant, bypass_get_data
+):
     """Each repair issue helper should only call the registry on transitions:
     create-while-active and clear-while-inactive are both no-ops. Prevents
     spamming the issue registry on every poll cycle while in a steady state.
     """
     from unittest.mock import patch as patch_
+
     config_entry = MockConfigEntry(
-        domain=DOMAIN, data=MOCK_CONFIG, entry_id="test_idemp",
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        entry_id="test_idemp",
     )
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
@@ -189,14 +198,17 @@ async def test_repair_issue_helpers_are_idempotent(hass: HomeAssistant, bypass_g
 
 
 async def test_data_only_entry_update_does_not_reload(
-    hass: HomeAssistant, bypass_get_data,
+    hass: HomeAssistant,
+    bypass_get_data,
 ):
     """Entry data changes (e.g. _persist_mint persisting a fresh cookie) must
     NOT trigger an entry reload. Reloading on every mint causes all entities
     to flap between unavailable and available every ~5 days (proactive) and
     on every reactive 401/403."""
     config_entry = MockConfigEntry(
-        domain=DOMAIN, data=MOCK_CONFIG, entry_id="test_data_only",
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        entry_id="test_data_only",
     )
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
@@ -216,12 +228,16 @@ async def test_data_only_entry_update_does_not_reload(
 
 
 async def test_options_change_does_reload(
-    hass: HomeAssistant, bypass_get_data,
+    hass: HomeAssistant,
+    bypass_get_data,
 ):
     """Entry option changes (scan_interval, impersonate_profile, platform
     toggles) must reload the entry so the new option takes effect."""
     config_entry = MockConfigEntry(
-        domain=DOMAIN, data=MOCK_CONFIG, options={}, entry_id="test_opt_change",
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={},
+        entry_id="test_opt_change",
     )
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
@@ -232,7 +248,8 @@ async def test_options_change_does_reload(
         new_callable=AsyncMock,
     ) as mock_reload:
         hass.config_entries.async_update_entry(
-            config_entry, options={"scan_interval": 60},
+            config_entry,
+            options={"scan_interval": 60},
         )
         await hass.async_block_till_done()
 
@@ -240,7 +257,8 @@ async def test_options_change_does_reload(
 
 
 async def test_persist_mint_updates_api_client_in_place(
-    hass: HomeAssistant, bypass_get_data,
+    hass: HomeAssistant,
+    bypass_get_data,
 ):
     """After a successful mint, the in-flight api client must pick up the new
     cookie without requiring an entry reload. Otherwise the next API call uses
@@ -251,7 +269,9 @@ async def test_persist_mint_updates_api_client_in_place(
     from custom_components.generac.auth import MintResult
 
     config_entry = MockConfigEntry(
-        domain=DOMAIN, data=MOCK_AUTO_MINT_CONFIG, entry_id="test_persist_inplace",
+        domain=DOMAIN,
+        data=MOCK_AUTO_MINT_CONFIG,
+        entry_id="test_persist_inplace",
     )
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)

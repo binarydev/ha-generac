@@ -3,7 +3,8 @@ import json
 import logging
 import re
 import urllib.parse
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from typing import Literal
 
 import voluptuous as vol
@@ -59,10 +60,14 @@ def _resolve_mode(form: dict, stored: dict) -> ResolutionResult:
     # can't rely on form_email being blank to detect mode change.
     if form_cookie and form_cookie != stored_cookie and not form_password:
         deletions = [
-            k for k in (
-                CONF_EMAIL, CONF_AUTH_PASSWORD,
-                CONF_DEVICE_COOKIES, CONF_COOKIE_MINTED_AT,
-            ) if k in stored
+            k
+            for k in (
+                CONF_EMAIL,
+                CONF_AUTH_PASSWORD,
+                CONF_DEVICE_COOKIES,
+                CONF_COOKIE_MINTED_AT,
+            )
+            if k in stored
         ]
         return ResolutionResult(
             mode="PASTE_ONLY",
@@ -101,10 +106,14 @@ def _resolve_mode(form: dict, stored: dict) -> ResolutionResult:
         # Switching from AUTO_MINT (or staying PASTE_ONLY) — wipe any
         # AUTO_MINT-only keys.
         deletions = [
-            k for k in (
-                CONF_EMAIL, CONF_AUTH_PASSWORD,
-                CONF_DEVICE_COOKIES, CONF_COOKIE_MINTED_AT,
-            ) if k in stored
+            k
+            for k in (
+                CONF_EMAIL,
+                CONF_AUTH_PASSWORD,
+                CONF_DEVICE_COOKIES,
+                CONF_COOKIE_MINTED_AT,
+            )
+            if k in stored
         ]
         return ResolutionResult(
             mode="PASTE_ONLY",
@@ -192,15 +201,17 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         AUTO_MINT submit via ensure_curl_cffi; install failure surfaces as
         a form error so unsupported platforms still get a clear message.
         """
-        schema = vol.Schema({
-            vol.Optional(CONF_EMAIL): str,
-            vol.Optional(CONF_AUTH_PASSWORD): selector.TextSelector(
-                selector.TextSelectorConfig(
-                    type=selector.TextSelectorType.PASSWORD,
-                )
-            ),
-            vol.Optional(CONF_SESSION_COOKIE): str,
-        })
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_EMAIL): str,
+                vol.Optional(CONF_AUTH_PASSWORD): selector.TextSelector(
+                    selector.TextSelectorConfig(
+                        type=selector.TextSelectorType.PASSWORD,
+                    )
+                ),
+                vol.Optional(CONF_SESSION_COOKIE): str,
+            }
+        )
 
         return self.async_show_form(
             step_id="user",
@@ -216,21 +227,23 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         the reauth flow so the right translations render and submission
         routes back to async_step_reauth_confirm.
         """
-        schema = vol.Schema({
-            vol.Optional(
-                CONF_EMAIL,
-                default=entry.data.get(CONF_EMAIL, ""),
-            ): str,
-            vol.Optional(CONF_AUTH_PASSWORD): selector.TextSelector(
-                selector.TextSelectorConfig(
-                    type=selector.TextSelectorType.PASSWORD,
-                )
-            ),
-            vol.Optional(
-                CONF_SESSION_COOKIE,
-                default=entry.data.get(CONF_SESSION_COOKIE, ""),
-            ): str,
-        })
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_EMAIL,
+                    default=entry.data.get(CONF_EMAIL, ""),
+                ): str,
+                vol.Optional(CONF_AUTH_PASSWORD): selector.TextSelector(
+                    selector.TextSelectorConfig(
+                        type=selector.TextSelectorType.PASSWORD,
+                    )
+                ),
+                vol.Optional(
+                    CONF_SESSION_COOKIE,
+                    default=entry.data.get(CONF_SESSION_COOKIE, ""),
+                ): str,
+            }
+        )
 
         return self.async_show_form(
             step_id=step_id,
@@ -337,7 +350,9 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if entry is not None:
             return self.async_update_reload_and_abort(
-                entry, data=new_data, reason="Reconfigure Successful",
+                entry,
+                data=new_data,
+                reason="Reconfigure Successful",
             )
 
         title = unique_id or "generac"

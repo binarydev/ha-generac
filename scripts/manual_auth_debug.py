@@ -25,18 +25,13 @@ from pathlib import Path
 
 # Import the integration's auth module without depending on the rest of
 # the integration (which would pull in homeassistant.*).
-_AUTH_DIR = (
-    Path(__file__).resolve().parent.parent
-    / "custom_components" / "generac"
-)
+_AUTH_DIR = Path(__file__).resolve().parent.parent / "custom_components" / "generac"
 sys.path.insert(0, str(_AUTH_DIR))
 import auth  # noqa: E402
 
 
 SMOKE_TEST_URL = "https://app.mobilelinkgen.com/api/v2/Apparatus/list"
-DEVICE_COOKIE_PATH = (
-    Path.home() / ".cache" / "generac-auto-login" / "cookies.json"
-)
+DEVICE_COOKIE_PATH = Path.home() / ".cache" / "generac-auto-login" / "cookies.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,19 +41,24 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--email", default=os.environ.get("GENERAC_EMAIL"))
     p.add_argument("--password", default=os.environ.get("GENERAC_PASSWORD"))
     p.add_argument(
-        "--out", type=Path,
+        "--out",
+        type=Path,
         help="Also write the cookie to this file.",
     )
     p.add_argument(
-        "--verbose", "-v", action="store_true",
+        "--verbose",
+        "-v",
+        action="store_true",
         help="Log the redirect chain to stderr.",
     )
     p.add_argument(
-        "--no-device-persistence", action="store_true",
+        "--no-device-persistence",
+        action="store_true",
         help="Don't persist Auth0 device cookies between runs.",
     )
     p.add_argument(
-        "--impersonate", default="chrome120",
+        "--impersonate",
+        default="chrome120",
         help="curl_cffi browser impersonation profile (default: chrome120).",
     )
     return p.parse_args()
@@ -116,9 +116,7 @@ async def main_async() -> int:
 
     log = make_logger(args.verbose)
 
-    device_cookies = (
-        None if args.no_device_persistence else load_device_cookies()
-    )
+    device_cookies = None if args.no_device_persistence else load_device_cookies()
 
     try:
         result = await auth.mint_cookie(

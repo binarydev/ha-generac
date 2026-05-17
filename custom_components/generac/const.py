@@ -52,10 +52,10 @@ CONF_COOKIE_MINTED_AT = "cookie_minted_at"
 CONF_IMPERSONATE_PROFILE = "impersonate_profile"
 
 # Cookie lifecycle (epoch seconds compared via time.time())
-COOKIE_NOMINAL_TTL = timedelta(days=7)          # observed; documentation only
-REMINT_THRESHOLD = timedelta(days=5)            # mint when older than this
-MINT_COOLDOWN = timedelta(minutes=10)           # post-failure backoff
-MINT_FAIL_LIMIT = 3                              # consecutive failures → reauth
+COOKIE_NOMINAL_TTL = timedelta(days=7)  # observed; documentation only
+REMINT_THRESHOLD = timedelta(days=5)  # mint when older than this
+MINT_COOLDOWN = timedelta(minutes=10)  # post-failure backoff
+MINT_FAIL_LIMIT = 3  # consecutive failures → reauth
 
 DEFAULT_IMPERSONATE = "chrome120"
 
@@ -65,8 +65,16 @@ DEFAULT_IMPERSONATE = "chrome120"
 # When curl_cffi is upgraded, update this list — keep it in sync with
 # scripts/README.md.
 IMPERSONATE_PROFILES = [
-    "chrome99", "chrome100", "chrome101", "chrome104", "chrome107",
-    "chrome110", "chrome116", "chrome119", "chrome120", "chrome123",
+    "chrome99",
+    "chrome100",
+    "chrome101",
+    "chrome104",
+    "chrome107",
+    "chrome110",
+    "chrome116",
+    "chrome119",
+    "chrome120",
+    "chrome123",
     "chrome124",
 ]
 

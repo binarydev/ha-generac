@@ -14,8 +14,11 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable
-from urllib.parse import parse_qs, urlparse
+from typing import Any
+from typing import Awaitable
+from typing import Callable
+from urllib.parse import parse_qs
+from urllib.parse import urlparse
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -78,6 +81,7 @@ def is_curl_cffi_available() -> bool:
     """
     try:
         import curl_cffi.requests  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -302,7 +306,8 @@ async def mint_cookie(
         ) from e
 
     async with AsyncSession(
-        impersonate=impersonate, timeout=_MINT_REQUEST_TIMEOUT,
+        impersonate=impersonate,
+        timeout=_MINT_REQUEST_TIMEOUT,
     ) as session:
         # Pre-load Auth0 device cookies if we have them from a prior mint.
         # Filter through _DEVICE_COOKIE_NAMES so old persistence formats
@@ -332,7 +337,8 @@ async def mint_cookie(
     # Generac changes the nominal TTL (currently ~7 days).
     if observed_expiry:
         expiry_str = time.strftime(
-            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(observed_expiry),
+            "%Y-%m-%dT%H:%M:%SZ",
+            time.gmtime(observed_expiry),
         )
         _LOGGER.info(
             "minted; observed BFF cookie expiry: %s (nominal TTL: 7 days)",
@@ -357,7 +363,7 @@ class GeneracAuthClient:
     entry data.
     """
 
-    _COOLDOWN_SECONDS = 10 * 60   # MINT_COOLDOWN = 10 minutes
+    _COOLDOWN_SECONDS = 10 * 60  # MINT_COOLDOWN = 10 minutes
 
     def __init__(
         self,

@@ -3,35 +3,35 @@ from __future__ import annotations
 
 import asyncio
 import time
+import time as time_mod
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
-
 from custom_components.generac import auth
 
 
 class TestCookieIsAging:
-    REMINT_SECONDS = 5 * 24 * 3600   # REMINT_THRESHOLD = 5 days
+    REMINT_SECONDS = 5 * 24 * 3600  # REMINT_THRESHOLD = 5 days
 
     def test_none_minted_at_is_aging(self) -> None:
         assert auth.cookie_is_aging(None, now=time.time()) is True
 
     def test_fresh_cookie_is_not_aging(self) -> None:
         now = time.time()
-        minted_at = now - 60                              # 1 minute ago
+        minted_at = now - 60  # 1 minute ago
         assert auth.cookie_is_aging(minted_at, now=now) is False
 
     def test_cookie_just_under_threshold_is_not_aging(self) -> None:
         now = time.time()
-        minted_at = now - (self.REMINT_SECONDS - 60)      # 5 days minus 1 minute
+        minted_at = now - (self.REMINT_SECONDS - 60)  # 5 days minus 1 minute
         assert auth.cookie_is_aging(minted_at, now=now) is False
 
     def test_cookie_past_threshold_is_aging(self) -> None:
         now = time.time()
-        minted_at = now - (self.REMINT_SECONDS + 60)      # 5 days plus 1 minute
+        minted_at = now - (self.REMINT_SECONDS + 60)  # 5 days plus 1 minute
         assert auth.cookie_is_aging(minted_at, now=now) is True
-
-
-from types import SimpleNamespace
 
 
 def _fake_cookie(name: str, value: str, domain: str, path: str = "/"):
@@ -42,8 +42,12 @@ def _fake_cookie(name: str, value: str, domain: str, path: str = "/"):
 class TestSerializeCookieHeader:
     def test_includes_mobilelinkgen_root_path_cookies(self) -> None:
         cookies = [
-            _fake_cookie("MobileLinkClientCookie", "encoded-blob", "app.mobilelinkgen.com"),
-            _fake_cookie(".AspNetCore.Cookies", "session-blob", "app.mobilelinkgen.com"),
+            _fake_cookie(
+                "MobileLinkClientCookie", "encoded-blob", "app.mobilelinkgen.com"
+            ),
+            _fake_cookie(
+                ".AspNetCore.Cookies", "session-blob", "app.mobilelinkgen.com"
+            ),
         ]
         header = auth.serialize_cookie_header(cookies)
         assert "MobileLinkClientCookie=encoded-blob" in header
@@ -65,9 +69,21 @@ class TestSerializeCookieHeader:
         and could trigger server-side rejection. Regression-prone — was a real bug
         in the standalone script (see scripts/README.md troubleshooting)."""
         cookies = [
-            _fake_cookie("MobileLinkClientCookie", "blob", "app.mobilelinkgen.com", path="/"),
-            _fake_cookie(".AspNetCore.Correlation.foo", "nonce", "app.mobilelinkgen.com", path="/oidc/auth"),
-            _fake_cookie(".AspNetCore.OpenIdConnect.Nonce.bar", "nonce", "app.mobilelinkgen.com", path="/oidc/auth"),
+            _fake_cookie(
+                "MobileLinkClientCookie", "blob", "app.mobilelinkgen.com", path="/"
+            ),
+            _fake_cookie(
+                ".AspNetCore.Correlation.foo",
+                "nonce",
+                "app.mobilelinkgen.com",
+                path="/oidc/auth",
+            ),
+            _fake_cookie(
+                ".AspNetCore.OpenIdConnect.Nonce.bar",
+                "nonce",
+                "app.mobilelinkgen.com",
+                path="/oidc/auth",
+            ),
         ]
         header = auth.serialize_cookie_header(cookies)
         assert "MobileLinkClientCookie=blob" in header
@@ -78,7 +94,9 @@ class TestSerializeCookieHeader:
         assert auth.serialize_cookie_header([]) == ""
 
     def test_single_cookie_has_no_trailing_separator(self) -> None:
-        cookies = [_fake_cookie("MobileLinkClientCookie", "blob", "app.mobilelinkgen.com")]
+        cookies = [
+            _fake_cookie("MobileLinkClientCookie", "blob", "app.mobilelinkgen.com")
+        ]
         header = auth.serialize_cookie_header(cookies)
         assert header == "MobileLinkClientCookie=blob"
 
@@ -106,11 +124,6 @@ class TestDeviceCookieFilter:
         assert set(extracted.keys()) == {"did", "did_compat"}
         assert extracted["did"]["value"] == "X"
         assert extracted["did_compat"]["value"] == "Y"
-
-
-import time as time_mod
-from typing import Any
-from unittest.mock import AsyncMock
 
 
 class TestGeneracAuthClient:
@@ -187,7 +200,9 @@ class TestGeneracAuthClient:
             started_event.set()
             await proceed_event.wait()
             return auth.MintResult(
-                cookie_header="cookie", device_cookies={}, minted_at=time_mod.time(),
+                cookie_header="cookie",
+                device_cookies={},
+                minted_at=time_mod.time(),
             )
 
         captured = []
@@ -216,7 +231,8 @@ class TestGeneracAuthClient:
 
     @pytest.mark.asyncio
     async def test_three_concurrent_mints_all_reuse_one_result(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         """All concurrent callers (N >= 3) should reuse the in-flight mint's
         result rather than triggering fresh mints. Earlier versions had a
@@ -233,7 +249,9 @@ class TestGeneracAuthClient:
             started_event.set()
             await proceed_event.wait()
             return auth.MintResult(
-                cookie_header="cookie", device_cookies={}, minted_at=time_mod.time(),
+                cookie_header="cookie",
+                device_cookies={},
+                minted_at=time_mod.time(),
             )
 
         captured = []

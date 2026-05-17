@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock
 import aiohttp
 import pytest
 from aioresponses import aioresponses
-
-from custom_components.generac import api, auth
+from custom_components.generac import api
+from custom_components.generac import auth
 
 
 @pytest.fixture
@@ -157,9 +157,7 @@ async def test_401_with_mint_raising_bad_credentials_propagates(
     to ConfigEntryAuthFailed. A generic IOError/Exception wrapper here defeats
     the failure-classification matrix."""
     mock_auth = AsyncMock()
-    mock_auth.mint = AsyncMock(
-        side_effect=auth.BadCredentialsError("rotated password")
-    )
+    mock_auth.mint = AsyncMock(side_effect=auth.BadCredentialsError("rotated password"))
 
     client = _make_client(session, auth_client=mock_auth)
 

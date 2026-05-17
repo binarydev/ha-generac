@@ -62,7 +62,9 @@ class GeneracApiClient:
         }
 
     def update_session_cookie(
-        self, cookie_header: str, device_cookies: dict | None,
+        self,
+        cookie_header: str,
+        device_cookies: dict | None,
     ) -> None:
         """Apply a freshly-minted cookie in-place.
 
@@ -139,10 +141,13 @@ class GeneracApiClient:
                 # for persisting the new cookie to entry.data.
                 _LOGGER.info(
                     "Endpoint %s returned %s; triggering re-mint",
-                    endpoint, response.status,
+                    endpoint,
+                    response.status,
                 )
                 result = await self._auth_client.mint(
-                    self._email, self._auth_password, self._device_cookies,
+                    self._email,
+                    self._auth_password,
+                    self._device_cookies,
                 )
                 self._headers["Cookie"] = result.cookie_header
                 self._device_cookies = result.device_cookies
