@@ -17,11 +17,20 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    coordinator: GeneracDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: GeneracDataUpdateCoordinator | None = hass.data.get(DOMAIN, {}).get(
+        entry.entry_id
+    )
+    if coordinator is None:
+        return {
+            "status": "not_loaded",
+            "data": {},
+        }
 
     diagnostics_data = {
+        "status": "loaded",
         "data": redact(
-            {gen_id: asdict(item) for gen_id, item in coordinator.data.items()}, False
+            {gen_id: asdict(item) for gen_id, item in (coordinator.data or {}).items()},
+            False,
         ),
     }
 
@@ -31,16 +40,17 @@ async def async_get_config_entry_diagnostics(
 DataDict = dict[str, "str | DataDict"]
 
 
-def redact(data: Any, redact_all: bool):
+def redact(data: Any, redact_all: bool) -> Any:
     if isinstance(data, dict):
         return redact_dict(data, redact_all)
     if isinstance(data, list):
         return redact_array(data, redact_all)
     if isinstance(data, str):
-        if parseaddr(data) == ("", ""):
-            return "REDACTED_VALID_EMAIL"
+        _, address = parseaddr(data)
+        if "@" in address:
+            return "REDACTED_EMAIL"
         if is_ipv4(data):
-            return "REDACTED_IPV4"
+            return "REDACTED_IPV6"
         if is_ipv6(data):
             return "REDACTED_IPV4"
     if redact_all:
@@ -48,19 +58,19 @@ def redact(data: Any, redact_all: bool):
     return data
 
 
-def is_ipv4(s: str):
+def is_ipv4(s: str) -> bool:
     try:
         ipaddress.IPv4Network(s)
         return True
-    except ValueError:
+    except (TypeError, ValueError):
         return False
 
 
-def is_ipv6(s: str):
+def is_ipv6(s: str) -> bool:
     try:
-        ipaddress.IPv4Network(s)
+        ipaddress.IPv6Network(s)
         return True
-    except ValueError:
+    except (TypeError, ValueError):
         return False
 
 
