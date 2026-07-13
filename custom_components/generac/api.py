@@ -8,6 +8,7 @@ API versioning: `/api/v1`, `/api/v2`, and `/api/v5` were all observed
 returning identical payloads for the endpoints we use. The iOS app uses
 `/api/v5`; we follow suit for futureproofing.
 """
+import asyncio
 import json
 import logging
 
@@ -16,6 +17,7 @@ from dacite import from_dict
 
 from .auth import GeneracAuth
 from .auth import InvalidGrantError
+from .auth import REQUEST_TIMEOUT
 from .auth import USER_AGENT_API
 from .const import ALLOWED_DEVICES
 from .const import API_BASE
@@ -23,7 +25,7 @@ from .models import Apparatus
 from .models import ApparatusDetail
 from .models import Item
 
-TIMEOUT = 10
+REQUEST_RETRY_DELAY = 1
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -131,29 +133,56 @@ class GeneracApiClient:
         }
 
         url = API_BASE + endpoint
-        try:
-            async with self._session.get(url, headers=headers) as response:
-                if response.status == 204:
-                    return None
+        for attempt in range(2):
+            try:
+                async with self._session.get(
+                    url, headers=headers, timeout=REQUEST_TIMEOUT
+                ) as response:
+                    if response.status == 204:
+                        return None
 
-                if response.status == 401:
-                    raise SessionExpiredException(f"API returned 401 for {endpoint}")
+                    if response.status == 401 and attempt == 0:
+                        _LOGGER.warning(
+                            "Mobile Link rejected the access token for %s; "
+                            "forcing one token refresh",
+                            endpoint,
+                        )
+                        try:
+                            access_token = await self._auth.force_refresh()
+                        except InvalidGrantError as ex:
+                            raise InvalidCredentialsException(str(ex)) from ex
+                        headers["Authorization"] = f"Bearer {access_token}"
+                        continue
 
-                if response.status != 200:
-                    body = ""
-                    try:
-                        body = (await response.text())[:200]
-                    except Exception:
-                        pass
-                    raise SessionExpiredException(
-                        f"API returned status code {response.status} for "
-                        f"{endpoint}: {body}"
+                    if response.status == 401:
+                        raise SessionExpiredException(
+                            f"API returned 401 for {endpoint} after token refresh"
+                        )
+
+                    if response.status != 200:
+                        body = ""
+                        try:
+                            body = (await response.text())[:200]
+                        except Exception:
+                            pass
+                        raise SessionExpiredException(
+                            f"API returned status code {response.status} for "
+                            f"{endpoint}: {body}"
+                        )
+
+                    data = await response.json()
+                    _LOGGER.debug("getEndpoint %s", json.dumps(data))
+                    return data
+            except SessionExpiredException:
+                raise
+            except asyncio.TimeoutError as ex:
+                if attempt == 0:
+                    _LOGGER.warning(
+                        "Mobile Link request timed out for %s; retrying once",
+                        endpoint,
                     )
-
-                data = await response.json()
-                _LOGGER.debug("getEndpoint %s", json.dumps(data))
-                return data
-        except SessionExpiredException:
-            raise
-        except Exception as ex:
-            raise IOError(f"GET {url} failed: {type(ex).__name__}: {ex}") from ex
+                    await asyncio.sleep(REQUEST_RETRY_DELAY)
+                    continue
+                raise IOError(f"GET {url} timed out after retry") from ex
+            except Exception as ex:
+                raise IOError(f"GET {url} failed: {type(ex).__name__}: {ex}") from ex

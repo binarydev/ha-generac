@@ -59,6 +59,9 @@ _MFA_METHOD_LABELS = {
     "otp": "your authenticator app",
     "email": "email",
 }
+# Credential from the retired cookie flow. Reauth and reconfigure drop it
+# instead of merging it into the new entry data.
+_RETIRED_AUTH_KEYS = frozenset({"session_cookie"})
 
 
 def _map_runtime_error(msg: str) -> str:
@@ -107,8 +110,13 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     def _merge_entry_data(entry: config_entries.ConfigEntry, entry_data: dict) -> dict:
-        """Overlay fresh credentials, dropping a stored password on opt-out."""
-        data = {**entry.data, **entry_data}
+        """Overlay fresh credentials, dropping retired keys and a stored password on opt-out."""
+        data = {
+            key: value
+            for key, value in entry.data.items()
+            if key not in _RETIRED_AUTH_KEYS
+        }
+        data.update(entry_data)
         if CONF_PASSWORD not in entry_data:
             data.pop(CONF_PASSWORD, None)
         return data
