@@ -32,7 +32,7 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 5. Once Home Assistant comes back online, go to Settings -> Integrations
 6. Click the `Add Integration` button
 7. Search the list for `generac` and select it
-8. Follow the instructions below for Cookie-based authentication, which require manually logging in to the MobileLink website and retrieving a session cookie.
+8. Enter your Generac MobileLink/Ecobee username and password.
 9. The integration should initialize and begin pulling your device information within seconds
 
 ## Installation (without HACS)
@@ -47,27 +47,15 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 
 ## Configuration is done in the UI
 
-## Cookie-based Authentication
+## [OBSOLETE] Username + Password Authentication
 
-NOTE: This step requires Edge/Chrome. Firefox handles cookies differently and does not provide the full block of text required as a single string that you can easily extract.
-
-Using Username+Password to login has been removed (for now), due to Generac blocking automated scripts from logging in on the MobileLink app via a Captcha. Instead, the recommended method of authentication is to manually login and retrieve your session cookie. This requires you to do the following:
-
-1. Log into https://app.mobilelinkgen.com/ until you reach the main dashboard with your devices. Click on one of your Generac devices. This will take you to a URL that looks like this https://app.mobilelinkgen.com/details/<ID_NUMBER_HERE>
-2. Open the web-browser Developer Tools aka "devtools" (e.g. in Chrome, right-click the page and hit the Inspect option).
-3. Go to the Network tab in the devtools panel and refresh your browser (THE REFRESH IS IMPORTANT HERE).
-4. The Network tab will now have a long list of things it just loaded, but the one you care about will be the first item in the list and will match the <ID_NUMBER_HERE> part of the URL you landed on.
-5. Select that first item in the list, and it will open a panel to the right-hand side that shows you more details.
-6. In this side panel, make sure you have the "Headers" tab selected. Scroll down in that right-hand panel until you find a field named Cookie, which has a LARGE block of text with thousands of characters, symbols, and numbers that could probably fill 2+ pages in a word doc. That's just to say that if the text is only a few short lines equal to maybe just a paragraph, it's not the right one, in which case refresh the page and try again or try clicking on a different page of the website and repeating the above steps on that other page. The very large block of text is what you want.
-7. Double click the large block of text to select it all.
-8. Copy-paste it into the "Session Cookie" field for the Generac setup UI in Home Assistant.
-9. Hit submit and enjoy your integration!
+This integration previously used a cookie-fishing authentication workflow. As of PR #267, it has now been replaced by a standard OAuth workflow similar to the mobile app, using your username and password, with auto-refreshing token retrieval. You no longer need to enter your cookie's string!
 
 > [!IMPORTANT]
 >
-> ## Unusual Integration Setup
+> ## Fair Warning
 >
-> Status Quo in summer 2025: This integration requires an unusual setup process to be able to access the data of your Generac devices. This is because Generac has changed (once again) the original authentication workflow to actively block third-party access. They state that Home Assistant users were overloading their API. We have since adjusted accordingly to adapt to the new authenatication method and reduced our default polling interval from every 30 seconds to every 120 seconds, to be a "good" user of the API and cut the volume of traffic to their servers by 75%. This polling interval can also be tuned to your needs in the options panel of the HA integration once you have set it up, as seen [here](./setup_instructions/options.png).
+> Status Quo in summer 2026: This is an unofficial Generac integration, which requires using undocumented APIs in order to access the data of your Generac devices using your username and password. This is because Generac has changed (once again) the authentication workflow to actively block third-party access. They also originally stated that Home Assistant users were overloading their API. We have since adjusted accordingly to adapt to the new authenatication method and reduced our default polling interval from every 30 seconds to every 120 seconds, to be a "good" user of the API and cut the volume of traffic to their servers by 75%. This polling interval can also be tuned to your needs in the options panel of the HA integration once you have set it up, as seen [here](./setup_instructions/options.png).
 >
 > This approach implies that when Generac is going to change something in their non-public/undocumented API, it's quite likely that the integration will break instantly.
 >
