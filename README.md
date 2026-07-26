@@ -1,7 +1,9 @@
 > [!WARNING]
-> Generac is moving to a new unified login system in mid-April that will likely block this integration for some time (if not permanently)! If you would like an alternative for whole-home generators that allows you to drop the need to maintain a MobileLink subscription, please see the ongoing discussions [here](https://github.com/binarydev/ha-generac/issues/227) for local hardware solutions using GenMon and Raspberry Pi's. Shoutout to [Jeff Terrace](https://github.com/jterrace) for his [blog post](https://blog.jeffterrace.com/2025/10/free-from-generac-with-genmon.html) documenting how to set this up, so others can benefit from his experience!
+> This is an unofficial Generac MobileLink integration. Generac systems may change at anytime, which would break the functionality of this integration, and it should not be used for anything mission critical. If you would like an alternative for whole-home generators that allows you to drop the need to maintain a MobileLink subscription, please see the ongoing discussions [here](https://github.com/binarydev/ha-generac/issues/227) for local hardware solutions using GenMon and Raspberry Pi's. Shoutout to [Jeff Terrace](https://github.com/jterrace) for his [blog post](https://blog.jeffterrace.com/2025/10/free-from-generac-with-genmon.html) documenting how to set this up, so others can benefit from his experience!
+>
+> As of July 26, 2026, this integration currently support logging in with your MyGenerac/MobileLink username and password to expose your devices to Home Assistant for monitoring and automation.
 
-# generac
+# Generac MobileLink/MyGenerac Home Assistant Integration
 
 [![hacs][hacsbadge]][hacs]
 
