@@ -2,20 +2,57 @@
   "config": {
     "step": {
       "user": {
-        "title": "generac",
-        "description": "Si vous avez besoin d'aide pour la configuration, regardez ici: https://github.com/binarydev/ha-generac",
+        "title": "Generac MobileLink",
+        "description": "Connectez-vous avec votre compte Mobile Link.",
         "data": {
-          "username": "Identifiant",
-          "password": "Mot de Passe",
-          "session_cookie": "Cookie de session"
+          "username": "E-mail",
+          "password": "Mot de passe"
+        }
+      },
+      "reconfigure": {
+        "title": "Generac MobileLink",
+        "description": "Saisissez à nouveau vos identifiants Mobile Link.",
+        "data": {
+          "username": "E-mail",
+          "password": "Mot de passe",
+          "scan_interval": "Intervalle d'interrogation du cloud (secondes)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Réauthentifier Generac MobileLink",
+        "description": "La session pour {username} a expiré. Entrez votre mot de passe pour la rafraîchir.",
+        "data": {
+          "password": "Mot de passe"
+        }
+      },
+      "mfa": {
+        "title": "Authentification à deux facteurs",
+        "description": "Votre compte Generac nécessite un code de vérification. Entrez le code qui vous a été envoyé via {method}.",
+        "data": {
+          "mfa_code": "Code de vérification"
         }
       }
     },
     "error": {
-      "auth": "Identifiant ou mot de passe erroné."
+      "auth": "E-mail ou mot de passe invalide.",
+      "mfa_invalid": "Ce code est incorrect ou a expiré. Saisissez le code le plus récent, ou annulez et recommencez pour en obtenir un nouveau.",
+      "mfa_unsupported": "Votre compte utilise une méthode à deux facteurs que cette intégration ne peut pas effectuer automatiquement (comme une notification push ou une clé de sécurité). Approuvez la connexion dans l'application MobileLink, ou passez votre compte Generac/ecobee aux codes par SMS, e-mail ou application d'authentification, puis réessayez.",
+      "auth0_unreachable": "Impossible d'atteindre auth.ecobee.com. Vérifiez le réseau sortant/DNS de l'hôte HA.",
+      "auth0_step_authorize": "L'étape Auth0 /authorize a échoué — le point d'entrée universal-login n'a pas accepté notre demande. Vérifiez Paramètres → Système → Journaux pour la ligne 'Generac auth: step=authorize', puis signalez-le sur github.com/pjordanandrsn/ha-generac.",
+      "auth0_step_login_form": "Le formulaire de connexion Auth0 (identifiant ou mot de passe) a renvoyé une réponse inattendue. Les champs du formulaire ou le flux ont peut-être changé. Vérifiez le journal HA pour les lignes 'POST .../login/'.",
+      "auth0_step_resume": "L'étape Auth0 /authorize/resume a échoué — la connexion a semblé réussir mais la redirection de reprise était mal formée. Vérifiez le journal HA pour la ligne 'Generac auth: step=resume'.",
+      "auth0_redirect": "Auth0 a renvoyé une redirection inattendue. Vérifiez le journal HA pour les lignes 'Generac auth:' et signalez-le sur github.com/pjordanandrsn/ha-generac.",
+      "code_exchange": "Auth0 a accepté la connexion mais a rejeté l'échange de jetons (DPoP/PKCE). Vérifiez le journal HA et signalez-le sur github.com/pjordanandrsn/ha-generac.",
+      "internal": "Erreur inattendue. Vérifiez Paramètres → Système → Journaux pour la trace complète et signalez-le sur github.com/pjordanandrsn/ha-generac."
     },
     "abort": {
-      "single_instance_allowed": "Une seule instance est autorisée."
+      "single_instance_allowed": "Une seule instance est autorisée.",
+      "already_configured": "Ce compte est déjà configuré.",
+      "reauth_successful": "Réauthentification réussie.",
+      "reconfigure_successful": "Reconfiguration réussie.",
+      "entry_not_found": "L'entrée de configuration n'existe plus.",
+      "mfa_unsupported": "Votre compte utilise une méthode à deux facteurs que cette intégration ne peut pas effectuer automatiquement (comme une notification push ou une clé de sécurité). Approuvez la connexion dans l'application MobileLink, ou passez votre compte Generac/ecobee aux codes par SMS, e-mail ou application d'authentification, puis réessayez.",
+      "mfa_failed": "La vérification à deux facteurs n'a pas pu être effectuée. Recommencez la configuration pour demander un nouveau code."
     }
   },
   "options": {

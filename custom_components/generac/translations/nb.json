@@ -2,20 +2,57 @@
   "config": {
     "step": {
       "user": {
-        "title": "generac",
-        "description": "Hvis du trenger hjep til konfigurasjon ta en titt her: https://github.com/binarydev/ha-generac",
+        "title": "Generac MobileLink",
+        "description": "Logg på med din Mobile Link-konto.",
         "data": {
-          "username": "Brukernavn",
+          "username": "E-post",
+          "password": "Passord"
+        }
+      },
+      "reconfigure": {
+        "title": "Generac MobileLink",
+        "description": "Skriv inn Mobile Link-legitimasjonen din på nytt.",
+        "data": {
+          "username": "E-post",
           "password": "Passord",
-          "session_cookie": "Sesjonskake"
+          "scan_interval": "Intervall for skyavstemning (sekunder)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reautentiser Generac MobileLink",
+        "description": "Økten for {username} har utløpt. Skriv inn passordet ditt for å oppdatere den.",
+        "data": {
+          "password": "Passord"
+        }
+      },
+      "mfa": {
+        "title": "To-faktor-autentisering",
+        "description": "Generac-kontoen din krever en bekreftelseskode. Skriv inn koden sendt til deg via {method}.",
+        "data": {
+          "mfa_code": "Bekreftelseskode"
         }
       }
     },
     "error": {
-      "auth": "Brukernavn/Passord er feil."
+      "auth": "Ugyldig e-post eller passord.",
+      "mfa_invalid": "Koden var feil eller har utløpt. Skriv inn den nyeste koden, eller avbryt og start på nytt for å få en ny.",
+      "mfa_unsupported": "Kontoen din bruker en tofaktor-metode som denne integrasjonen ikke kan fullføre automatisk (for eksempel et push-varsel eller en sikkerhetsnøkkel). Godkjenn påloggingen i MobileLink-appen, eller bytt Generac/ecobee-kontoen din til SMS, e-post eller koder fra autentiseringsapp, og prøv igjen.",
+      "auth0_unreachable": "Kunne ikke nå auth.ecobee.com. Sjekk HA-vertens utgående nettverk/DNS.",
+      "auth0_step_authorize": "Auth0 /authorize-trinn mislyktes — universal-login-inngangspunktet godtok ikke forespørselen vår. Sjekk Innstillinger → System → Logger for 'Generac auth: step=authorize'-linjen, og rapporter deretter på github.com/pjordanandrsn/ha-generac.",
+      "auth0_step_login_form": "Auth0 innloggingsskjema (identifikator eller passord) returnerte et uventet svar. Skjemafeltene eller flyten kan ha endret seg. Sjekk HA-loggen for 'POST .../login/'-linjer.",
+      "auth0_step_resume": "Auth0 /authorize/resume-trinn mislyktes — påloggingen så ut til å være vellykket, men gjenoppta-omdirigeringen var feilformatert. Sjekk HA-loggen for 'Generac auth: step=resume'-linjen.",
+      "auth0_redirect": "Auth0 returnerte en uventet omdirigering. Sjekk HA-loggen for 'Generac auth:'-linjer og rapporter på github.com/pjordanandrsn/ha-generac.",
+      "code_exchange": "Auth0 godtok innlogging, men avviste tokenutvekslingen (DPoP/PKCE). Sjekk HA-loggen og rapporter på github.com/pjordanandrsn/ha-generac.",
+      "internal": "Uventet feil. Sjekk Innstillinger → System → Logger for full sporing og rapporter på github.com/pjordanandrsn/ha-generac."
     },
     "abort": {
-      "single_instance_allowed": "Denne integrasjonen kan kun konfigureres en gang."
+      "single_instance_allowed": "Denne integrasjonen kan kun konfigureres en gang.",
+      "already_configured": "Denne kontoen er allerede konfigurert.",
+      "reauth_successful": "Reautentisering vellykket.",
+      "reconfigure_successful": "Rekonfigurasjon vellykket.",
+      "entry_not_found": "Konfigurasjonsoppføringen eksisterer ikke lenger.",
+      "mfa_unsupported": "Kontoen din bruker en tofaktor-metode som denne integrasjonen ikke kan fullføre automatisk (for eksempel et push-varsel eller en sikkerhetsnøkkel). Godkjenn påloggingen i MobileLink-appen, eller bytt Generac/ecobee-kontoen din til SMS, e-post eller koder fra autentiseringsapp, og prøv igjen.",
+      "mfa_failed": "Tofaktor-bekreftelse kunne ikke fullføres. Start oppsettet på nytt for å be om en ny kode."
     }
   },
   "options": {

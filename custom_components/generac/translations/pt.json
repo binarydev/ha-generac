@@ -2,21 +2,57 @@
   "config": {
     "step": {
       "user": {
-        "title": "generac",
-        "description": "Se precisar de ajuda com a configuração, consulte: https://github.com/binarydev/ha-generac",
+        "title": "Generac MobileLink",
+        "description": "Inicie sessão com a sua conta Mobile Link.",
         "data": {
-          "username": "Nome de utilizador",
+          "username": "Email",
+          "password": "Palavra-passe"
+        }
+      },
+      "reconfigure": {
+        "title": "Generac MobileLink",
+        "description": "Volte a introduzir as suas credenciais do Mobile Link.",
+        "data": {
+          "username": "Email",
           "password": "Palavra-passe",
-          "session_cookie": "Cookie de sessão"
+          "scan_interval": "Intervalo de sondagem à cloud (segundos)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reautenticar Generac MobileLink",
+        "description": "A sessão de {username} expirou. Introduza a sua palavra-passe para a atualizar.",
+        "data": {
+          "password": "Palavra-passe"
+        }
+      },
+      "mfa": {
+        "title": "Autenticação de dois fatores",
+        "description": "A sua conta Generac requer um código de verificação. Introduza o código que lhe foi enviado via {method}.",
+        "data": {
+          "mfa_code": "Código de verificação"
         }
       }
     },
     "error": {
-      "auth": "Nome de utilizador ou palavra-passe incorretos.",
-      "internal": "Erro interno, reporte o problema em https://github.com/binarydev/ha-generac."
+      "auth": "Email ou palavra-passe incorretos.",
+      "mfa_invalid": "Esse código estava incorreto ou expirou. Introduza o código mais recente ou cancele e comece de novo para obter um novo.",
+      "mfa_unsupported": "A sua conta utiliza um método de dois fatores que esta integração não consegue concluir automaticamente (como uma notificação push ou chave de segurança). Aprove o início de sessão na aplicação MobileLink ou mude a sua conta Generac/ecobee para SMS, email ou códigos de aplicação de autenticação e tente novamente.",
+      "auth0_unreachable": "Não foi possível contactar auth.ecobee.com. Verifique a rede de saída/DNS do anfitrião HA.",
+      "auth0_step_authorize": "O passo Auth0 /authorize falhou — o ponto de entrada universal-login não aceitou o nosso pedido. Verifique Definições → Sistema → Registos para a linha 'Generac auth: step=authorize', depois reporte em github.com/pjordanandrsn/ha-generac.",
+      "auth0_step_login_form": "O formulário de início de sessão Auth0 (identificador ou palavra-passe) devolveu uma resposta inesperada. Os campos do formulário ou o fluxo podem ter mudado. Verifique o registo do HA para as linhas 'POST .../login/'.",
+      "auth0_step_resume": "O passo Auth0 /authorize/resume falhou — o início de sessão pareceu ter sucesso, mas o redirecionamento de retoma estava mal formatado. Verifique o registo do HA para a linha 'Generac auth: step=resume'.",
+      "auth0_redirect": "O Auth0 devolveu um redirecionamento inesperado. Verifique o registo do HA para as linhas 'Generac auth:' e reporte em github.com/pjordanandrsn/ha-generac.",
+      "code_exchange": "O Auth0 aceitou o início de sessão, mas rejeitou a troca de token (DPoP/PKCE). Verifique o registo do HA e reporte em github.com/pjordanandrsn/ha-generac.",
+      "internal": "Erro inesperado. Verifique Definições → Sistema → Registos para o traceback completo e reporte em github.com/pjordanandrsn/ha-generac."
     },
     "abort": {
-      "single_instance_allowed": "Apenas é permitida uma única instância."
+      "single_instance_allowed": "Apenas é permitida uma única instância.",
+      "already_configured": "Esta conta já está configurada.",
+      "reauth_successful": "Reautenticação bem-sucedida.",
+      "reconfigure_successful": "Reconfiguração bem-sucedida.",
+      "entry_not_found": "A entrada de configuração já não existe.",
+      "mfa_unsupported": "A sua conta utiliza um método de dois fatores que esta integração não consegue concluir automaticamente (como uma notificação push ou chave de segurança). Aprove o início de sessão na aplicação MobileLink ou mude a sua conta Generac/ecobee para SMS, email ou códigos de aplicação de autenticação e tente novamente.",
+      "mfa_failed": "A verificação de dois fatores não pôde ser concluída. Inicie a configuração novamente para pedir um novo código."
     }
   },
   "options": {
