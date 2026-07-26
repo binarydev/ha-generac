@@ -8,15 +8,17 @@ API versioning: `/api/v1`, `/api/v2`, and `/api/v5` were all observed
 returning identical payloads for the endpoints we use. The iOS app uses
 `/api/v5`; we follow suit for futureproofing.
 """
-
 import json
 import logging
 
 import aiohttp
 from dacite import from_dict
 
-from .auth import GeneracAuth, InvalidGrantError, USER_AGENT_API
-from .const import ALLOWED_DEVICES, API_BASE
+from .auth import GeneracAuth
+from .auth import InvalidGrantError
+from .auth import USER_AGENT_API
+from .const import ALLOWED_DEVICES
+from .const import API_BASE
 from .models import Apparatus
 from .models import ApparatusDetail
 from .models import Item

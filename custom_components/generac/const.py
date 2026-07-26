@@ -1,5 +1,4 @@
 """Constants for generac."""
-
 # Base component constants
 NAME = "generac"
 DOMAIN = "generac"

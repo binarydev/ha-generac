@@ -1,5 +1,4 @@
 """Test the Generac sensor platform."""
-
 from unittest.mock import MagicMock
 
 from custom_components.generac.const import DEVICE_TYPE_GENERATOR

@@ -16,7 +16,6 @@ Refresh tokens for this client are NOT rotated by Auth0 (verified
 empirically with multiple successive refreshes). We never need to
 rewrite the ConfigEntry on a successful refresh.
 """
-
 from __future__ import annotations
 
 import asyncio
@@ -30,10 +29,13 @@ import time
 import urllib.parse
 import uuid
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable
+from typing import Callable
+from typing import Optional
 
 import aiohttp
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 

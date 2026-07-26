@@ -1,5 +1,4 @@
 """Image platform for generac."""
-
 import mimetypes
 
 import httpx
