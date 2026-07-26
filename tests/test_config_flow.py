@@ -338,3 +338,152 @@ async def test_reconfigure_flow_persists_scan_interval(hass: HomeAssistant) -> N
         await hass.async_block_till_done()
 
     assert entry.options.get(CONF_SCAN_INTERVAL) == 600
+
+
+async def test_reconfigure_reloads_when_setup_failed(hass: HomeAssistant) -> None:
+    """Regression (issue #283): reconfiguring an entry whose initial setup
+    failed must explicitly reload it.
+
+    A v1->v2 upgrade leaves entry.data without a refresh token / DPoP key, so
+    async_setup_entry raises ConfigEntryAuthFailed before the update listener
+    is registered. Reconfigure then writes valid credentials, but with no
+    listener nothing reloads the entry — the fix schedules a reload so the new
+    tokens take effect without a full HA restart.
+    """
+    from custom_components.generac.const import CONF_SCAN_INTERVAL
+    from homeassistant.config_entries import ConfigEntryState
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_USERNAME: "user@example.com"},  # v1-style: no RT / PEM
+        options={},
+        entry_id="test",
+    )
+    entry.add_to_hass(hass)
+
+    # Initial setup fails (missing creds) -> no update listener, not LOADED.
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is not ConfigEntryState.LOADED
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": entry.entry_id},
+    )
+    assert result["step_id"] == "reconfigure"
+
+    new_auth = _mock_auth(refresh_token="new-rt")
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=new_auth),
+    ), patch(
+        "homeassistant.config_entries.ConfigEntries.async_schedule_reload"
+    ) as mock_reload:
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "new-pw",
+                CONF_SCAN_INTERVAL: 60,
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert result2["type"] == "abort"
+    assert entry.data[CONF_REFRESH_TOKEN] == "new-rt"
+    assert CONF_DPOP_PEM in entry.data
+    mock_reload.assert_called_once_with(entry.entry_id)
+
+
+async def test_reauth_reloads_when_setup_failed(hass: HomeAssistant) -> None:
+    """Regression (issue #283): reauth after a failed setup must reload too."""
+    from homeassistant.config_entries import ConfigEntryState
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="user@example.com",
+        data={CONF_USERNAME: "user@example.com"},  # v1-style: no RT / PEM
+        entry_id="test",
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is not ConfigEntryState.LOADED
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reauth", "entry_id": entry.entry_id},
+        data=entry.data,
+    )
+    assert result["step_id"] == "reauth_confirm"
+
+    new_auth = _mock_auth(refresh_token="fresh-rt")
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=new_auth),
+    ), patch(
+        "homeassistant.config_entries.ConfigEntries.async_schedule_reload"
+    ) as mock_reload:
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_PASSWORD: "new-pw"},
+        )
+        await hass.async_block_till_done()
+
+    assert result2["type"] == "abort"
+    assert result2["reason"] == "reauth_successful"
+    assert entry.data[CONF_REFRESH_TOKEN] == "fresh-rt"
+    mock_reload.assert_called_once_with(entry.entry_id)
+
+
+async def test_reconfigure_does_not_double_reload_when_loaded(
+    hass: HomeAssistant,
+) -> None:
+    """When the entry is already loaded, reconfigure must NOT schedule an
+    extra reload — the update listener handles it and a second reload would
+    race the unload ("failed to unload")."""
+    from custom_components.generac.const import CONF_SCAN_INTERVAL
+
+    pem = DPoPKey.generate().to_pem_str()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_REFRESH_TOKEN: "old-rt",
+            CONF_DPOP_PEM: pem,
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    with patch("custom_components.generac.async_setup_entry", return_value=True):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": entry.entry_id},
+    )
+    assert result["step_id"] == "reconfigure"
+
+    new_auth = _mock_auth(refresh_token="new-rt")
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=new_auth),
+    ), patch("custom_components.generac.async_setup_entry", return_value=True), patch(
+        "custom_components.generac.async_unload_entry", return_value=True
+    ), patch(
+        "homeassistant.config_entries.ConfigEntries.async_schedule_reload"
+    ) as mock_reload:
+        await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "new-pw",
+                CONF_SCAN_INTERVAL: 60,
+            },
+        )
+        await hass.async_block_till_done()
+
+    mock_reload.assert_not_called()
