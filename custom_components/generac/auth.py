@@ -16,6 +16,7 @@ Refresh tokens for this client are NOT rotated by Auth0 (verified
 empirically with multiple successive refreshes). We never need to
 rewrite the ConfigEntry on a successful refresh.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,13 +30,10 @@ import time
 import urllib.parse
 import uuid
 from dataclasses import dataclass
-from typing import Awaitable
-from typing import Callable
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 import aiohttp
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
@@ -96,6 +94,49 @@ class InvalidGrantError(Exception):
 
 class InvalidCredentialsError(Exception):
     """Raised when the user-supplied email/password is rejected at login."""
+
+
+class MfaRequiredError(Exception):
+    """Raised mid-login when Auth0 demands a one-time MFA code.
+
+    The login can't finish in one shot because the code is only sent
+    (SMS / email) or generated (authenticator app) *after* the password
+    is accepted. This carries the live `GeneracLoginFlow` so the caller
+    (the HA config flow) can prompt the user for the code and resume via
+    `flow.submit_mfa_code(code)`. The isolated login session is left open
+    while paused — the caller must eventually finish the flow or call
+    `flow.aclose()`.
+    """
+
+    def __init__(
+        self,
+        flow: "GeneracLoginFlow",
+        mfa_type: str,
+        challenge_url: str,
+        state: str,
+    ) -> None:
+        self.flow = flow
+        self.mfa_type = mfa_type
+        self.challenge_url = challenge_url
+        self.state = state
+        super().__init__(f"MFA required (type={mfa_type})")
+
+
+class InvalidMfaCodeError(Exception):
+    """Raised when the user-supplied MFA code is wrong or has expired.
+
+    Recoverable: the login session stays open so the user can retry with
+    a fresh code.
+    """
+
+
+class MfaUnsupportedError(Exception):
+    """Raised when Auth0 demands an MFA factor we can't drive headlessly.
+
+    Push notifications, WebAuthn/security keys and voice calls require
+    interaction we can't replicate from the integration; the user must
+    approve in the MobileLink app or switch to a code-based factor.
+    """
 
 
 @dataclass
@@ -210,19 +251,25 @@ async def _authorize(
         AUTHORIZE_URL, params=params, headers=headers, allow_redirects=False
     ) as resp:
         if resp.status not in (302, 303):
-            raise RuntimeError(f"/authorize: expected redirect, got {resp.status}")
+            body = (await resp.text())[:200]
+            raise RuntimeError(
+                f"step=authorize: expected 302/303, got {resp.status}; body={body!r}"
+            )
         loc = resp.headers["Location"]
         set_cookies = resp.headers.getall("Set-Cookie", [])
     cookie_names = sorted(c.key for c in session.cookie_jar)
-    _LOGGER.debug(
-        "/authorize -> 302 %s set-cookie-count=%d jar-after=%s",
-        loc[:120],
+    # Bumped to WARNING (was DEBUG) so it surfaces in the default HA log
+    # without flipping logger.generac to debug. Truncated to 200 chars to
+    # keep the log line readable but long enough to see the redirect path.
+    _LOGGER.warning(
+        "Generac auth: step=authorize -> 302 loc=%s set-cookie-count=%d jar-after=%s",
+        loc[:200],
         len(set_cookies),
         cookie_names,
     )
     qs = urllib.parse.parse_qs(urllib.parse.urlparse(loc).query)
     if "state" not in qs:
-        raise RuntimeError(f"/authorize: no state in redirect: {loc}")
+        raise RuntimeError(f"step=authorize: no state in redirect loc={loc!r}")
     return qs["state"][0]
 
 
@@ -265,8 +312,52 @@ async def _post_login_form(
                     for s in ("password", "credential", "user", "lock", "blocked")
                 ):
                     raise InvalidCredentialsError(f"login rejected ({code})")
-                raise RuntimeError(f"POST {url} -> {resp.status}: {code}")
-            raise RuntimeError(f"POST {url} -> {resp.status}")
+                raise RuntimeError(
+                    f"step=login_form url={url} status={resp.status} auth0_code={code}"
+                )
+            raise RuntimeError(
+                f"step=login_form url={url} status={resp.status} no_code body={text[:200]!r}"
+            )
+        return resp.headers["Location"]
+
+
+async def _post_mfa_challenge(
+    session: aiohttp.ClientSession, url: str, state: str, code: str
+) -> str:
+    """POST a one-time code to an Auth0 mfa-*-challenge screen.
+
+    Returns the redirect Location on acceptance (302/303). Raises
+    `InvalidMfaCodeError` when Auth0 re-renders the challenge instead of
+    redirecting — its way of saying the code was wrong or expired. Mirrors
+    `_post_login_form`: state goes in both the query string and the body,
+    and `action=default` selects the primary "verify" button.
+    """
+    headers = {
+        "User-Agent": USER_AGENT_WEB,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "text/html,*/*",
+        "Origin": f"https://{AUTH0_DOMAIN}",
+        "Referer": f"{url}?state={state}",
+    }
+    body = urllib.parse.urlencode({"state": state, "code": code, "action": "default"})
+    async with session.post(
+        url,
+        params={"state": state},
+        data=body,
+        headers=headers,
+        allow_redirects=False,
+    ) as resp:
+        if resp.status not in (302, 303):
+            text = await resp.text()
+            m = re.search(r'data-error-code="([^"]+)"', text)
+            err = m.group(1) if m else None
+            _LOGGER.warning(
+                "Generac auth: step=mfa-submit POST %s -> %s error-code=%s",
+                url,
+                resp.status,
+                err,
+            )
+            raise InvalidMfaCodeError(err or f"status={resp.status}")
         return resp.headers["Location"]
 
 
@@ -283,6 +374,7 @@ async def _identifier_step(
         "action": "default",
     }
     loc = await _post_login_form(session, IDENTIFIER_URL, state, form)
+    _LOGGER.warning("Generac auth: step=identifier -> loc=%s", loc[:200])
     parsed = urllib.parse.urlparse(loc)
     if not parsed.path.endswith("/u/login/password"):
         # Auth0 sends us back to /u/login/identifier when the email is
@@ -301,29 +393,151 @@ async def _password_step(
         "action": "default",
     }
     loc = await _post_login_form(session, PASSWORD_URL, state, form)
+    _LOGGER.warning("Generac auth: step=password -> loc=%s", loc[:200])
     parsed = urllib.parse.urlparse(loc)
     if not parsed.path.endswith("/authorize/resume"):
-        raise InvalidCredentialsError(f"password rejected: {loc}")
+        raise InvalidCredentialsError(f"step=password: rejected loc={loc!r}")
     return urllib.parse.parse_qs(parsed.query)["state"][0]
 
 
-async def _resume_to_code(session: aiohttp.ClientSession, resume_state: str) -> str:
-    headers = {"User-Agent": USER_AGENT_WEB, "Accept": "text/html,*/*"}
-    async with session.get(
-        RESUME_URL,
-        params={"state": resume_state},
-        headers=headers,
-        allow_redirects=False,
+async def _handle_custom_prompt(session: aiohttp.ClientSession, loc: str) -> str:
+    """POST an Auth0 /u/custom-prompt/<id> page back to itself and return
+    the state for the next /authorize/resume call.
+
+    Auth0 universal-login pages are React-rendered — the visible form is
+    hydrated client-side from JSON in a `<script>` tag, so static HTML
+    parsing can't find a `<form>` tag. We bypass parsing entirely: the
+    POST endpoint is always the same `/u/custom-prompt/<id>` URL, and
+    the body is always `state=<state>&action=default` for the primary
+    button (Auth0's universal convention — confirmed via the auth0
+    universal-login source).
+
+    If the prompt requires interactive action (verify-email, MFA setup,
+    profile completion), the POST returns 200 with the prompt page
+    again rather than a 302 — we surface that as an actionable error
+    pointing the user to the MobileLink app.
+    """
+    abs_url = (
+        loc if loc.startswith("http") else f"https://{AUTH0_DOMAIN}{loc}"
+    )
+    parsed = urllib.parse.urlparse(abs_url)
+    qs = urllib.parse.parse_qs(parsed.query)
+    state = qs.get("state", [""])[0]
+    if not state:
+        raise RuntimeError(f"step=custom-prompt: no state in url={abs_url!r}")
+
+    # Fetch the page to inspect the embedded prompt config. Auth0
+    # universal-login pages ship the React props as JSON inside a
+    # <script id="__NEXT_DATA__"> tag — the prompt name + required
+    # form fields are in there. We log the relevant bits so a failing
+    # POST below has actionable diagnostics in the trace.
+    headers_get = {"User-Agent": USER_AGENT_WEB, "Accept": "text/html,*/*"}
+    async with session.get(abs_url, headers=headers_get, allow_redirects=False) as resp:
+        page = await resp.text() if resp.status == 200 else ""
+    nd = re.search(
+        r'<script[^>]+id="__NEXT_DATA__"[^>]*>(.*?)</script>',
+        page, re.DOTALL,
+    )
+    if nd:
+        try:
+            nd_json = json.loads(nd.group(1))
+            prompt_blob = (
+                nd_json.get("props", {}).get("pageProps", {}).get("prompt")
+                or nd_json.get("prompt")
+            )
+            _LOGGER.warning(
+                "Generac auth: step=custom-prompt config=%s",
+                json.dumps(prompt_blob)[:1500] if prompt_blob else "(no prompt key)",
+            )
+        except (json.JSONDecodeError, KeyError, AttributeError) as e:
+            _LOGGER.warning(
+                "Generac auth: step=custom-prompt __NEXT_DATA__ parse failed: %s; "
+                "raw[:500]=%r", e, nd.group(1)[:500],
+            )
+    else:
+        # Auth0 Forms (the post-2024 form-builder feature, distinguished
+        # by .af-custom-form-container CSS classes) embeds its JSON in
+        # `window.universal_login_context = {...};` rather than
+        # __NEXT_DATA__. Pull that out if present.
+        ulc = re.search(
+            r'window\.universal_login_context\s*=\s*(\{.*?\});\s*<',
+            page, re.DOTALL,
+        )
+        if ulc:
+            try:
+                ulc_json = json.loads(ulc.group(1))
+                _LOGGER.warning(
+                    "Generac auth: step=custom-prompt ulc=%s",
+                    json.dumps(ulc_json)[:3000],
+                )
+            except json.JSONDecodeError as e:
+                _LOGGER.warning(
+                    "Generac auth: step=custom-prompt ulc parse failed: %s; "
+                    "raw[:1000]=%r", e, ulc.group(1)[:1000],
+                )
+        else:
+            _LOGGER.warning(
+                "Generac auth: step=custom-prompt no embedded JSON; "
+                "page[:3000]=%r", page[:3000],
+            )
+
+    # POST `state=...&action=default` to the same custom-prompt URL.
+    # `action=default` is Auth0's convention for "primary button" —
+    # works for Continue / Accept / Confirm / etc.
+    headers_post = {
+        "User-Agent": USER_AGENT_WEB,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "text/html,*/*",
+        "Origin": f"https://{AUTH0_DOMAIN}",
+        "Referer": abs_url,
+    }
+    body = {"state": state, "action": "default"}
+    async with session.post(
+        abs_url, data=body, headers=headers_post, allow_redirects=False,
     ) as resp:
-        if resp.status not in (302, 303):
-            raise RuntimeError(f"/authorize/resume -> {resp.status}")
-        loc = resp.headers["Location"]
-    if not loc.startswith("com.generac.mobilelink.auth0://"):
-        raise RuntimeError(f"/authorize/resume: unexpected scheme: {loc}")
-    qs = urllib.parse.parse_qs(urllib.parse.urlparse(loc).query)
-    if "code" not in qs:
-        raise RuntimeError(f"/authorize/resume: no code in redirect: {loc}")
-    return qs["code"][0]
+        status = resp.status
+        if status not in (302, 303):
+            # 200 means the prompt page rendered again — Auth0's way of
+            # saying "you need to interact with this in a real browser".
+            page = (await resp.text())[:300]
+            raise RuntimeError(
+                f"step=custom-prompt: POST {abs_url[:120]} -> {status} "
+                f"(expected 302/303). The prompt requires interactive "
+                f"action (most likely email verification or profile "
+                f"completion). Sign in to the MobileLink mobile app or "
+                f"https://app.mobilelink.generac.com on the web, "
+                f"complete any pending step shown there, then retry the "
+                f"HA integration setup. Page snippet: {page!r}"
+            )
+        new_loc = resp.headers["Location"]
+    _LOGGER.warning(
+        "Generac auth: step=custom-prompt POST -> %d loc=%s",
+        status, new_loc[:200],
+    )
+
+    # Most prompts redirect straight to /authorize/resume?state=<new>.
+    # Some chain through another /u/custom-prompt — the caller's loop
+    # handles that case (we just return whatever state we found).
+    parsed_new = urllib.parse.urlparse(new_loc)
+    if parsed_new.path.endswith("/authorize/resume"):
+        new_qs = urllib.parse.parse_qs(parsed_new.query)
+        if "state" not in new_qs:
+            raise RuntimeError(f"step=custom-prompt: no state in loc={new_loc!r}")
+        return new_qs["state"][0]
+    if "/u/custom-prompt/" in new_loc:
+        # Auth0 chained another prompt. Recurse so the caller sees a
+        # fresh resume state next iteration. (We pass the chained
+        # /u/custom-prompt/ URL through our handler.)
+        chained_state = urllib.parse.parse_qs(parsed_new.query).get("state", [""])[0]
+        if not chained_state:
+            raise RuntimeError(f"step=custom-prompt: chained prompt has no state: {new_loc!r}")
+        # Build a synthetic /authorize/resume URL with the chained
+        # state — caller's loop will GET it and either return code or
+        # hit another /u/custom-prompt and recurse here.
+        return chained_state
+    raise RuntimeError(
+        f"step=custom-prompt: unexpected redirect target loc={new_loc!r}"
+    )
 
 
 async def _exchange_code(
@@ -361,6 +575,244 @@ async def _exchange_code(
         if status == 200:
             return payload
     raise RuntimeError(f"code exchange failed: {status} {payload}")
+
+
+# ---------------------------------------------------------------------------
+# GeneracLoginFlow — stateful, resumable universal-login transaction
+# ---------------------------------------------------------------------------
+
+
+class GeneracLoginFlow:
+    """One Auth0 universal-login attempt, resumable across an MFA pause.
+
+    Most accounts finish in a single `start()`. Accounts with a one-time
+    code factor (SMS, authenticator app, or email) pause at the challenge
+    screen: `start()` raises `MfaRequiredError` carrying this flow, the
+    caller collects the code from the user, and `submit_mfa_code()`
+    finishes the login. The isolated cookie-jar login session is kept open
+    across that pause and closed when the flow terminates (success, hard
+    failure, or an explicit `aclose()`).
+    """
+
+    # Auth0 universal-login MFA screens that accept a typed one-time code.
+    # All three POST the same `state`+`code`+`action=default` body to their
+    # own URL, so one handler drives them. Push / WebAuthn / voice are not
+    # here — they can't be completed headlessly (see MfaUnsupportedError).
+    _CODE_CHALLENGES = {
+        "mfa-sms-challenge": "sms",
+        "mfa-otp-challenge": "otp",
+        "mfa-email-challenge": "email",
+    }
+
+    def __init__(
+        self,
+        api_session: aiohttp.ClientSession,
+        email: str,
+        password: str,
+    ) -> None:
+        # Long-lived, HA-managed session — NOT owned here. Only used to
+        # construct the returned GeneracAuth (which uses it for refresh).
+        self._api_session = api_session
+        self._email = email
+        self._password = password
+        self._key = DPoPKey.generate()
+        self._verifier, self._challenge = _make_pkce()
+        # Dedicated cookie-jar session for the universal-login dance. See
+        # GeneracAuth.login's docstring for why this must stay isolated
+        # from the shared session. We own it and close it in aclose().
+        self._login_session: Optional[aiohttp.ClientSession] = aiohttp.ClientSession(
+            cookie_jar=aiohttp.CookieJar(unsafe=True)
+        )
+        # Populated when a code challenge pauses the flow.
+        self._mfa_type: Optional[str] = None
+        self._challenge_url: Optional[str] = None
+        self._mfa_state: Optional[str] = None
+
+    @property
+    def mfa_type(self) -> Optional[str]:
+        """The pending factor ("sms"/"otp"/"email"), or None if not paused."""
+        return self._mfa_type
+
+    @classmethod
+    def _challenge_type(cls, path: str) -> Optional[str]:
+        """Return the code-challenge factor for an Auth0 path, else None."""
+        for fragment, mfa_type in cls._CODE_CHALLENGES.items():
+            if fragment in path:
+                return mfa_type
+        return None
+
+    async def start(self) -> "GeneracAuth":
+        """Run the login up to the OAuth code exchange.
+
+        Returns a ready `GeneracAuth` for accounts without MFA. Raises
+        `MfaRequiredError` (leaving the session open) when Auth0 demands a
+        one-time code, or `MfaUnsupportedError` for factors we can't drive.
+        """
+        assert self._login_session is not None
+        state = _b64url(secrets.token_bytes(32))
+        login_state = await _authorize(
+            self._login_session, self._key, state, self._challenge
+        )
+        pw_state = await _identifier_step(
+            self._login_session, login_state, self._email
+        )
+        resume_state = await _password_step(
+            self._login_session, pw_state, self._email, self._password
+        )
+        code = await self._drive_resume(resume_state)
+        return await self._finish(code)
+
+    async def submit_mfa_code(self, code: str) -> "GeneracAuth":
+        """Submit the user-entered one-time code and finish the login.
+
+        On success closes the login session and returns a ready
+        `GeneracAuth`. Raises `InvalidMfaCodeError` (session left open for
+        a retry) when Auth0 rejects the code.
+        """
+        if self._login_session is None or self._challenge_url is None:
+            raise RuntimeError("submit_mfa_code called without a pending challenge")
+        loc = await _post_mfa_challenge(
+            self._login_session, self._challenge_url, self._mfa_state or "", code
+        )
+        _LOGGER.warning("Generac auth: step=mfa-submit -> loc=%s", loc[:200])
+        parsed = urllib.parse.urlparse(loc)
+
+        # Bounced back to a code-challenge screen => wrong/expired code.
+        if self._challenge_type(parsed.path) is not None:
+            raise InvalidMfaCodeError("code rejected (challenge re-presented)")
+
+        if loc.startswith("com.generac.mobilelink.auth0://"):
+            qs = urllib.parse.parse_qs(parsed.query)
+            if "code" not in qs:
+                raise RuntimeError(f"step=mfa-submit: no code in redirect loc={loc!r}")
+            return await self._finish(qs["code"][0])
+
+        if "/u/mfa-" in parsed.path:
+            raise MfaUnsupportedError(
+                f"step=mfa-submit: unsupported follow-on factor loc={loc!r}"
+            )
+
+        if parsed.path.endswith("/authorize/resume"):
+            qs = urllib.parse.parse_qs(parsed.query)
+            if "state" not in qs:
+                raise RuntimeError(f"step=mfa-submit: no state in loc={loc!r}")
+            # Re-enter the resume loop: post-MFA Auth0 may still serve a
+            # custom prompt (or, rarely, chain a second factor).
+            code2 = await self._drive_resume(qs["state"][0])
+            return await self._finish(code2)
+
+        raise RuntimeError(f"step=mfa-submit: unexpected redirect loc={loc!r}")
+
+    async def _drive_resume(self, resume_state: str) -> str:
+        """GET /authorize/resume?state=… and turn the eventual app-scheme
+        redirect into the OAuth `code`.
+
+        Loops up to 3 times to handle Auth0 custom prompts (T&C updates,
+        cookie consent, account-link confirmation, etc.) that some accounts
+        have to clear once. Each prompt presents as a /u/custom-prompt/<id>
+        redirect after password — we fetch the page, post back the form
+        with its hidden state + the default action, and recurse on the new
+        resume state. Loop bound prevents infinite redirect storms if a
+        prompt can't be auto-handled.
+
+        When the redirect instead lands on an Auth0 mfa-{sms,otp,email}
+        challenge, we pause by raising `MfaRequiredError`; other /u/mfa-*
+        factors raise `MfaUnsupportedError`.
+        """
+        assert self._login_session is not None
+        headers = {"User-Agent": USER_AGENT_WEB, "Accept": "text/html,*/*"}
+        for attempt in range(3):
+            async with self._login_session.get(
+                RESUME_URL,
+                params={"state": resume_state},
+                headers=headers,
+                allow_redirects=False,
+            ) as resp:
+                if resp.status not in (302, 303):
+                    body = (await resp.text())[:200]
+                    raise RuntimeError(
+                        f"step=resume: expected 302/303, got {resp.status}; body={body!r}"
+                    )
+                loc = resp.headers["Location"]
+            _LOGGER.warning("Generac auth: step=resume -> loc=%s", loc[:200])
+
+            if loc.startswith("com.generac.mobilelink.auth0://"):
+                qs = urllib.parse.parse_qs(urllib.parse.urlparse(loc).query)
+                if "code" not in qs:
+                    raise RuntimeError(f"step=resume: no code in redirect loc={loc!r}")
+                return qs["code"][0]
+
+            parsed = urllib.parse.urlparse(loc)
+            mfa_type = self._challenge_type(parsed.path)
+            if mfa_type is not None:
+                mfa_qs = urllib.parse.parse_qs(parsed.query)
+                if "state" not in mfa_qs:
+                    raise RuntimeError(
+                        f"step=resume: mfa challenge without state loc={loc!r}"
+                    )
+                self._mfa_type = mfa_type
+                self._challenge_url = f"https://{AUTH0_DOMAIN}{parsed.path}"
+                self._mfa_state = mfa_qs["state"][0]
+                _LOGGER.warning(
+                    "Generac auth: step=resume -> mfa challenge type=%s; "
+                    "pausing for one-time code",
+                    mfa_type,
+                )
+                raise MfaRequiredError(
+                    self, mfa_type, self._challenge_url, self._mfa_state
+                )
+
+            if "/u/mfa-" in parsed.path:
+                raise MfaUnsupportedError(
+                    f"step=resume: unsupported MFA factor loc={loc!r}"
+                )
+
+            if "/u/custom-prompt/" in loc:
+                resume_state = await _handle_custom_prompt(self._login_session, loc)
+                continue
+
+            raise RuntimeError(f"step=resume: unexpected scheme loc={loc!r}")
+
+        raise RuntimeError(
+            "step=resume: 3 consecutive custom prompts without reaching the "
+            "app-scheme redirect. Open the MobileLink mobile app and complete "
+            "any pending prompts (T&C, profile completion, etc.), then retry."
+        )
+
+    async def _finish(self, code: str) -> "GeneracAuth":
+        """Exchange the OAuth code for tokens and build the GeneracAuth."""
+        assert self._login_session is not None
+        tokens = await _exchange_code(
+            self._login_session, self._key, code, self._verifier
+        )
+        refresh_token = tokens.get("refresh_token")
+        if not refresh_token:
+            raise RuntimeError("login: no refresh_token returned")
+        auth = GeneracAuth(
+            self._api_session, refresh_token, self._key, email=self._email
+        )
+        auth._access_token = tokens["access_token"]
+        auth._access_token_exp = time.time() + int(tokens.get("expires_in", 0))
+        _LOGGER.info(
+            "Login OK: expires_in=%s scope=%s token_type=%s",
+            tokens.get("expires_in"),
+            tokens.get("scope"),
+            tokens.get("token_type"),
+        )
+        await self.aclose()
+        return auth
+
+    async def aclose(self) -> None:
+        """Close the isolated login session. Idempotent; never raises."""
+        session = self._login_session
+        self._login_session = None
+        if session is not None and not session.closed:
+            try:
+                await session.close()
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug(
+                    "Generac auth: error closing login session", exc_info=True
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -411,38 +863,30 @@ class GeneracAuth:
         The Auth0 universal-login flow is stateful: /authorize sets a session
         cookie that /u/login/identifier and /u/login/password require. Some
         shared sessions disable cookie quoting or scrub cookies between calls,
-        which breaks the handshake. Use a dedicated cookie-jar-backed session
-        for the login flow only; the long-lived `session` is reused afterward
-        for refresh-token rotation, which doesn't depend on cookies.
+        which breaks the handshake. `GeneracLoginFlow` uses a dedicated
+        cookie-jar-backed session for the login flow only; the long-lived
+        `session` is reused afterward for refresh-token rotation, which
+        doesn't depend on cookies.
+
+        Accounts with a one-time code factor (SMS / authenticator / email)
+        can't finish in one shot — the code is only available after the
+        password is accepted. For those this raises `MfaRequiredError`,
+        carrying a live `GeneracLoginFlow` the caller must drive via
+        `flow.submit_mfa_code(...)`. The interactive config flow uses
+        `GeneracLoginFlow` directly; this classmethod stays for non-MFA
+        callers and back-compat.
         """
-        key = DPoPKey.generate()
-        verifier, challenge = _make_pkce()
-        state = _b64url(secrets.token_bytes(32))
-
-        jar = aiohttp.CookieJar(unsafe=True)
-        async with aiohttp.ClientSession(cookie_jar=jar) as login_session:
-            login_state = await _authorize(login_session, key, state, challenge)
-            pw_state = await _identifier_step(login_session, login_state, email)
-            resume_state = await _password_step(
-                login_session, pw_state, email, password
-            )
-            code = await _resume_to_code(login_session, resume_state)
-            tokens = await _exchange_code(login_session, key, code, verifier)
-
-        refresh_token = tokens.get("refresh_token")
-        if not refresh_token:
-            raise RuntimeError("login: no refresh_token returned")
-
-        auth = cls(session, refresh_token, key, email=email)
-        auth._access_token = tokens["access_token"]
-        auth._access_token_exp = time.time() + int(tokens.get("expires_in", 0))
-        _LOGGER.info(
-            "Login OK: expires_in=%s scope=%s token_type=%s",
-            tokens.get("expires_in"),
-            tokens.get("scope"),
-            tokens.get("token_type"),
-        )
-        return auth
+        flow = GeneracLoginFlow(session, email, password)
+        try:
+            return await flow.start()
+        except MfaRequiredError:
+            # Paused for MFA. The carried flow owns the still-open session;
+            # leave it for the caller to drive or close.
+            raise
+        except BaseException:
+            # Any other terminal outcome: don't leak the login session.
+            await flow.aclose()
+            raise
 
     @classmethod
     def from_storage(

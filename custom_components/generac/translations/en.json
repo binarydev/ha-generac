@@ -24,16 +24,35 @@
         "data": {
           "password": "Password"
         }
+      },
+      "mfa": {
+        "title": "Two-factor authentication",
+        "description": "Your Generac account requires a verification code. Enter the code sent to you via {method}.",
+        "data": {
+          "mfa_code": "Verification code"
+        }
       }
     },
     "error": {
       "auth": "Invalid email or password.",
-      "internal": "Unexpected error. File an issue at github.com/binarydev/ha-generac."
+      "mfa_invalid": "That code was incorrect or has expired. Enter the most recent code, or cancel and start over to get a new one.",
+      "mfa_unsupported": "Your account uses a two-factor method this integration can't complete automatically (such as a push notification or security key). Approve the login in the MobileLink app, or switch your Generac/ecobee account to SMS, email, or authenticator-app codes, then try again.",
+      "auth0_unreachable": "Could not reach auth.ecobee.com. Check the HA host's outbound network/DNS.",
+      "auth0_step_authorize": "Auth0 /authorize step failed — the universal-login entry point did not accept our request. Check Settings → System → Logs for the 'Generac auth: step=authorize' line, then report at github.com/pjordanandrsn/ha-generac.",
+      "auth0_step_login_form": "Auth0 login form (identifier or password) returned an unexpected response. The form fields or flow may have changed. Check the HA log for 'POST .../login/' lines.",
+      "auth0_step_resume": "Auth0 /authorize/resume step failed — login appeared to succeed but the resume redirect was malformed. Check the HA log for 'Generac auth: step=resume' line.",
+      "auth0_redirect": "Auth0 returned an unexpected redirect. Check the HA log for 'Generac auth:' lines and report at github.com/pjordanandrsn/ha-generac.",
+      "code_exchange": "Auth0 accepted login but rejected the token exchange (DPoP/PKCE). Check the HA log and report at github.com/pjordanandrsn/ha-generac.",
+      "internal": "Unexpected error. Check Settings → System → Logs for the full traceback and report at github.com/pjordanandrsn/ha-generac."
     },
     "abort": {
       "single_instance_allowed": "Only a single instance is allowed.",
       "already_configured": "This account is already configured.",
-      "reauth_successful": "Re-authentication successful."
+      "reauth_successful": "Re-authentication successful.",
+      "reconfigure_successful": "Reconfiguration successful.",
+      "entry_not_found": "The configuration entry no longer exists.",
+      "mfa_unsupported": "Your account uses a two-factor method this integration can't complete automatically (such as a push notification or security key). Approve the login in the MobileLink app, or switch your Generac/ecobee account to SMS, email, or authenticator-app codes, then try again.",
+      "mfa_failed": "Two-factor verification couldn't be completed. Start setup again to request a new code."
     }
   },
   "options": {

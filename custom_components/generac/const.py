@@ -43,6 +43,9 @@ PLATFORMS = [BINARY_SENSOR, SENSOR, WEATHER, IMAGE]
 CONF_ENABLED = "enabled"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
+# One-time MFA code (SMS / authenticator app / email) collected in the
+# second config-flow step when Auth0 demands it.
+CONF_MFA_CODE = "mfa_code"
 # Credentials: refresh token + DPoP private key (stored as PKCS8 PEM).
 # These two values together are the credential — losing either invalidates
 # the entry and forces reauth.

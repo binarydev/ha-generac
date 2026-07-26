@@ -32,8 +32,15 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 5. Once Home Assistant comes back online, go to Settings -> Integrations
 6. Click the `Add Integration` button
 7. Search the list for `generac` and select it
-8. Enter your Generac MobileLink/Ecobee username and password.
-9. The integration should initialize and begin pulling your device information within seconds
+8. Enter your **MyGenerac** email and password (the same credentials
+   you use in the MobileLink mobile app).
+9. **If your account has two-factor authentication**, a second screen
+   asks for the verification code sent by text (SMS), your authenticator
+   app, or email. Enter the most recent code and submit. (Push-prompt or
+   security-key 2FA can't be completed here — approve the login in the
+   MobileLink app, or switch your Generac/ecobee account to code-based
+   2FA, then retry.)
+10. The integration should initialize and begin pulling your device information within seconds
 
 ## Installation (without HACS)
 
@@ -44,10 +51,19 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 5. Place the files you downloaded in the new directory (folder) you created.
 6. Restart Home Assistant
 7. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "generac"
+8. Enter your **MyGenerac** email and password (the same credentials
+   you use in the MobileLink mobile app).
+9. **If your account has two-factor authentication**, a second screen
+   asks for the verification code sent by text (SMS), your authenticator
+   app, or email. Enter the most recent code and submit. (Push-prompt or
+   security-key 2FA can't be completed here — approve the login in the
+   MobileLink app, or switch your Generac/ecobee account to code-based
+   2FA, then retry.)
+10.  The integration should initialize and begin pulling your device information within seconds
 
 ## Configuration is done in the UI
 
-## [OBSOLETE] Username + Password Authentication
+## Username + Password Authentication
 
 This integration previously used a cookie-fishing authentication workflow. As of PR #267, it has now been replaced by a standard OAuth workflow similar to the mobile app, using your username and password, with auto-refreshing token retrieval. You no longer need to enter your cookie's string!
 
