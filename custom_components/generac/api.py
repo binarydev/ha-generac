@@ -112,6 +112,18 @@ class GeneracApiClient:
         except InvalidGrantError as ex:
             raise InvalidCredentialsException(str(ex)) from ex
 
+        # Bearer is intentional here, even though this access token is
+        # DPoP-*bound* (authorize sends dpop_jkt, so the token carries a
+        # cnf.jkt claim). Probed 2026-06-25 (probe_rs_dpop.py): the MobileLink
+        # resource server does NOT implement DPoP — `Authorization: DPoP` + a
+        # valid `ath` proof 401s, identically to a wrong-key proof (so it's
+        # rejecting the scheme, not validating proofs), while Bearer with the
+        # same bound token returns 200. Do NOT "finish" the dormant
+        # DPoPKey.sign_proof(access_token=...)/ath path by switching this to the
+        # DPoP scheme: it would 401 every poll for every user on the next
+        # refresh. Re-probe first; only wire a resource-side proof if the RS has
+        # started honoring DPoP (200 on a valid proof, or a use_dpop_nonce
+        # challenge).
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/json",
