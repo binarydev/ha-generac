@@ -59,7 +59,7 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
    security-key 2FA can't be completed here — approve the login in the
    MobileLink app, or switch your Generac/ecobee account to code-based
    2FA, then retry.)
-10.  The integration should initialize and begin pulling your device information within seconds
+10. The integration should initialize and begin pulling your device information within seconds
 
 ## Configuration is done in the UI
 

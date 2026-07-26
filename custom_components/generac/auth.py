@@ -16,7 +16,6 @@ Refresh tokens for this client are NOT rotated by Auth0 (verified
 empirically with multiple successive refreshes). We never need to
 rewrite the ConfigEntry on a successful refresh.
 """
-
 from __future__ import annotations
 
 import asyncio
@@ -30,10 +29,13 @@ import time
 import urllib.parse
 import uuid
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable
+from typing import Callable
+from typing import Optional
 
 import aiohttp
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
@@ -417,9 +419,7 @@ async def _handle_custom_prompt(session: aiohttp.ClientSession, loc: str) -> str
     again rather than a 302 — we surface that as an actionable error
     pointing the user to the MobileLink app.
     """
-    abs_url = (
-        loc if loc.startswith("http") else f"https://{AUTH0_DOMAIN}{loc}"
-    )
+    abs_url = loc if loc.startswith("http") else f"https://{AUTH0_DOMAIN}{loc}"
     parsed = urllib.parse.urlparse(abs_url)
     qs = urllib.parse.parse_qs(parsed.query)
     state = qs.get("state", [""])[0]
@@ -436,15 +436,15 @@ async def _handle_custom_prompt(session: aiohttp.ClientSession, loc: str) -> str
         page = await resp.text() if resp.status == 200 else ""
     nd = re.search(
         r'<script[^>]+id="__NEXT_DATA__"[^>]*>(.*?)</script>',
-        page, re.DOTALL,
+        page,
+        re.DOTALL,
     )
     if nd:
         try:
             nd_json = json.loads(nd.group(1))
-            prompt_blob = (
-                nd_json.get("props", {}).get("pageProps", {}).get("prompt")
-                or nd_json.get("prompt")
-            )
+            prompt_blob = nd_json.get("props", {}).get("pageProps", {}).get(
+                "prompt"
+            ) or nd_json.get("prompt")
             _LOGGER.warning(
                 "Generac auth: step=custom-prompt config=%s",
                 json.dumps(prompt_blob)[:1500] if prompt_blob else "(no prompt key)",
@@ -452,7 +452,9 @@ async def _handle_custom_prompt(session: aiohttp.ClientSession, loc: str) -> str
         except (json.JSONDecodeError, KeyError, AttributeError) as e:
             _LOGGER.warning(
                 "Generac auth: step=custom-prompt __NEXT_DATA__ parse failed: %s; "
-                "raw[:500]=%r", e, nd.group(1)[:500],
+                "raw[:500]=%r",
+                e,
+                nd.group(1)[:500],
             )
     else:
         # Auth0 Forms (the post-2024 form-builder feature, distinguished
@@ -460,8 +462,9 @@ async def _handle_custom_prompt(session: aiohttp.ClientSession, loc: str) -> str
         # `window.universal_login_context = {...};` rather than
         # __NEXT_DATA__. Pull that out if present.
         ulc = re.search(
-            r'window\.universal_login_context\s*=\s*(\{.*?\});\s*<',
-            page, re.DOTALL,
+            r"window\.universal_login_context\s*=\s*(\{.*?\});\s*<",
+            page,
+            re.DOTALL,
         )
         if ulc:
             try:
@@ -473,12 +476,14 @@ async def _handle_custom_prompt(session: aiohttp.ClientSession, loc: str) -> str
             except json.JSONDecodeError as e:
                 _LOGGER.warning(
                     "Generac auth: step=custom-prompt ulc parse failed: %s; "
-                    "raw[:1000]=%r", e, ulc.group(1)[:1000],
+                    "raw[:1000]=%r",
+                    e,
+                    ulc.group(1)[:1000],
                 )
         else:
             _LOGGER.warning(
-                "Generac auth: step=custom-prompt no embedded JSON; "
-                "page[:3000]=%r", page[:3000],
+                "Generac auth: step=custom-prompt no embedded JSON; " "page[:3000]=%r",
+                page[:3000],
             )
 
     # POST `state=...&action=default` to the same custom-prompt URL.
@@ -493,7 +498,10 @@ async def _handle_custom_prompt(session: aiohttp.ClientSession, loc: str) -> str
     }
     body = {"state": state, "action": "default"}
     async with session.post(
-        abs_url, data=body, headers=headers_post, allow_redirects=False,
+        abs_url,
+        data=body,
+        headers=headers_post,
+        allow_redirects=False,
     ) as resp:
         status = resp.status
         if status not in (302, 303):
@@ -512,7 +520,8 @@ async def _handle_custom_prompt(session: aiohttp.ClientSession, loc: str) -> str
         new_loc = resp.headers["Location"]
     _LOGGER.warning(
         "Generac auth: step=custom-prompt POST -> %d loc=%s",
-        status, new_loc[:200],
+        status,
+        new_loc[:200],
     )
 
     # Most prompts redirect straight to /authorize/resume?state=<new>.
@@ -530,7 +539,9 @@ async def _handle_custom_prompt(session: aiohttp.ClientSession, loc: str) -> str
         # /u/custom-prompt/ URL through our handler.)
         chained_state = urllib.parse.parse_qs(parsed_new.query).get("state", [""])[0]
         if not chained_state:
-            raise RuntimeError(f"step=custom-prompt: chained prompt has no state: {new_loc!r}")
+            raise RuntimeError(
+                f"step=custom-prompt: chained prompt has no state: {new_loc!r}"
+            )
         # Build a synthetic /authorize/resume URL with the chained
         # state — caller's loop will GET it and either return code or
         # hit another /u/custom-prompt and recurse here.
@@ -653,9 +664,7 @@ class GeneracLoginFlow:
         login_state = await _authorize(
             self._login_session, self._key, state, self._challenge
         )
-        pw_state = await _identifier_step(
-            self._login_session, login_state, self._email
-        )
+        pw_state = await _identifier_step(self._login_session, login_state, self._email)
         resume_state = await _password_step(
             self._login_session, pw_state, self._email, self._password
         )
