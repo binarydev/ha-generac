@@ -47,7 +47,7 @@ class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
         )
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return the state attributes."""
         return {
             "attribution": ATTRIBUTION,
@@ -63,9 +63,6 @@ class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
     async def async_added_to_hass(self) -> None:
         """Connect to dispatcher listening for entity data notifications."""
         await super().async_added_to_hass()
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
-        )
 
     @property
     def aparatus(self) -> Apparatus:
