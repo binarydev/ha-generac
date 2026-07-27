@@ -26,6 +26,7 @@ import logging
 import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import callback
 
 from .auth import GeneracAuth
@@ -96,6 +97,25 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_REFRESH_TOKEN: auth.refresh_token,
             CONF_DPOP_PEM: auth.pem_str,
         }
+
+    def _reload_if_setup_failed(self, entry: config_entries.ConfigEntry) -> None:
+        """Force a reload when the entry isn't currently loaded.
+
+        The reload after a credential update normally rides on the update
+        listener registered in async_setup_entry. But that listener is only
+        registered once setup *succeeds*. When the initial setup failed — the
+        exact situation reauth/reconfigure exists to recover from (e.g. a
+        v1->v2 upgrade whose entry.data has no refresh token / DPoP key, which
+        raises ConfigEntryAuthFailed before the listener is wired up) — no
+        listener exists, so writing fresh credentials would never take effect
+        until a full HA restart. In that case reload explicitly.
+
+        When the entry IS loaded the listener is present and will reload on
+        the data change, so we must NOT schedule a second reload here or the
+        two would race and surface as "failed to unload".
+        """
+        if entry.state is not ConfigEntryState.LOADED:
+            self.hass.config_entries.async_schedule_reload(entry.entry_id)
 
     async def _try_login(
         self, email: str, password: str
@@ -230,16 +250,20 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             **(entry.options or {}),
             CONF_SCAN_INTERVAL: int(self._pending_scan_interval),
         }
-        # Update only — the update listener registered in async_setup_entry
-        # will reload the entry exactly once. Calling
-        # async_update_reload_and_abort here would double-reload (helper
-        # schedules + listener fires) and race the unload, surfacing as
-        # "failed to unload".
+        # Update the stored data/options. When the entry is already loaded the
+        # update listener registered in async_setup_entry reloads it exactly
+        # once on this change. When the initial setup failed there is no such
+        # listener, so reload explicitly — otherwise the freshly-stored
+        # credentials sit unused until a full HA restart (issue #283). Calling
+        # async_update_reload_and_abort unconditionally would double-reload in
+        # the loaded case (helper schedules + listener fires) and race the
+        # unload, surfacing as "failed to unload".
         self.hass.config_entries.async_update_entry(
             entry,
             data={**entry.data, **entry_data},
             options=new_options,
         )
+        self._reload_if_setup_failed(entry)
         return self.async_abort(reason="reconfigure_successful")
 
     async def async_step_reauth(self, entry_data):
@@ -294,12 +318,16 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Terminal action for a reauth: overwrite creds in place."""
         entry = self._reauth_entry
         assert entry is not None
-        # Update only — the update listener registered in async_setup_entry
-        # handles the reload. An explicit async_reload here would race the
-        # listener-driven reload and surface as "failed to unload".
+        # Update the stored credentials. When the entry is already loaded the
+        # update listener reloads it on this change; when the initial setup
+        # failed (no listener) reload explicitly so the new tokens take effect
+        # without a full HA restart (issue #283). An unconditional explicit
+        # reload here would race the listener-driven one in the loaded case and
+        # surface as "failed to unload".
         self.hass.config_entries.async_update_entry(
             entry, data={**entry.data, **entry_data}
         )
+        self._reload_if_setup_failed(entry)
         return self.async_abort(reason="reauth_successful")
 
     async def async_step_mfa(self, user_input=None):
