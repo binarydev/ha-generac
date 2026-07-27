@@ -8,5 +8,5 @@ pytest-homeassistant-custom-component==0.13.348
 pytest-asyncio==1.4.0
 pytest-socket==0.8.0
 respx==0.23.1
-aioresponses==0.7.8
+aioresponses==0.7.9
 Brotli==1.2.0
