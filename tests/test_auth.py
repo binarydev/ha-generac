@@ -135,9 +135,54 @@ async def test_refresh_invalid_grant_raises():
         await auth._refresh()
 
 
-# ---------------------------------------------------------------------------
-# P1: Auth0 ULP form-parser error code mapping
-# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_refresh_invalid_grant_403_raises():
+    """Generac returns invalid_grant with HTTP 403, not the RFC-standard 400.
+
+    Regression: the old `status == 400` guard let this fall through to a
+    generic RuntimeError, so the coordinator hit its catch-all ("Unexpected
+    error refreshing Generac data") instead of ConfigEntryAuthFailed — every
+    entity went unavailable with no reauth prompt.
+    """
+    auth = _make_auth(refresh_token="rt-REVOKED")
+    auth._session.post = MagicMock(
+        return_value=_acm(
+            _token_resp(
+                403,
+                {
+                    "error": "invalid_grant",
+                    "error_description": "Unknown or invalid refresh token.",
+                },
+            )
+        )
+    )
+
+    with pytest.raises(InvalidGrantError):
+        await auth._refresh()
+
+
+@pytest.mark.asyncio
+async def test_refresh_bare_403_raises_invalid_grant():
+    """A 401/403 with no OAuth error body is still an auth failure -> reauth."""
+    auth = _make_auth(refresh_token="rt-REVOKED")
+    auth._session.post = MagicMock(
+        return_value=_acm(_token_resp(403, {"raw": "Forbidden"}))
+    )
+
+    with pytest.raises(InvalidGrantError):
+        await auth._refresh()
+
+
+@pytest.mark.asyncio
+async def test_refresh_transient_5xx_raises_runtime_error():
+    """Transient 5xx stays a RuntimeError (-> UpdateFailed -> retry), not reauth."""
+    auth = _make_auth(refresh_token="rt-OLD")
+    auth._session.post = MagicMock(
+        return_value=_acm(_token_resp(500, {"error": "server_error"}))
+    )
+
+    with pytest.raises(RuntimeError):
+        await auth._refresh()
 
 
 def _ulp_error_resp(status: int, code: str | None):

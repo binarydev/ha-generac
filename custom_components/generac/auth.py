@@ -1003,7 +1003,23 @@ class GeneracAuth:
                     )
             return
 
-        if status == 400 and payload.get("error") == "invalid_grant":
+        # OAuth2 (RFC 6749 §5.2) mandates HTTP 400 for invalid_grant, but
+        # Generac's IdP returns it as 403. Trust the OAuth `error` field over
+        # the HTTP status so an invalidated refresh token always triggers HA's
+        # reauth flow (InvalidGrantError -> ConfigEntryAuthFailed) instead of
+        # falling through to a generic RuntimeError that silently freezes every
+        # entity as "unavailable" with no user-facing prompt to re-login.
+        if payload.get("error") == "invalid_grant":
             raise InvalidGrantError(payload.get("error_description", "invalid_grant"))
+
+        # Any other outright rejection from the token endpoint (401/403) means
+        # our grant/credentials are no longer accepted — an auth failure, not a
+        # transient outage. Surface it as reauth rather than looping on
+        # UpdateFailed forever. Transient 5xx / network errors fall through to
+        # RuntimeError below so the coordinator retries instead of prompting.
+        if status in (401, 403):
+            raise InvalidGrantError(
+                f"token endpoint rejected credentials ({status}): {payload}"
+            )
 
         raise RuntimeError(f"token refresh failed: {status} {payload}")
