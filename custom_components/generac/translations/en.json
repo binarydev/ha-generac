@@ -34,7 +34,7 @@
       }
     },
     "error": {
-      "auth": "Invalid email or password.",
+      "auth": "Invalid email or password. If you haven't reset your password since Generac's April 2026 security update, sign in at app.mobilelinkgen.com first to reset your password and accept any updated terms.",
       "mfa_invalid": "That code was incorrect or has expired. Enter the most recent code, or cancel and start over to get a new one.",
       "mfa_unsupported": "Your account uses a two-factor method this integration can't complete automatically (such as a push notification or security key). Approve the login in the MobileLink app, or switch your Generac/ecobee account to SMS, email, or authenticator-app codes, then try again.",
       "auth0_unreachable": "Could not reach auth.ecobee.com. Check the HA host's outbound network/DNS.",

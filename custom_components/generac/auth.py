@@ -275,6 +275,42 @@ async def _authorize(
     return qs["state"][0]
 
 
+_CREDENTIAL_ERROR_KEYWORDS = (
+    "password",
+    "credential",
+    "user",
+    "email",
+    "lock",
+    "blocked",
+    "many-attempts",
+    "many_attempts",
+)
+
+
+def _extract_ulp_alert_text(html: str) -> Optional[str]:
+    """Extract human-readable error text from an Auth0 ULP error page.
+
+    When Auth0 rejects a login form without a field-level `data-error-code`
+    attribute (e.g. a banner in `#prompt-alert`, a custom database script
+    error, or an account requiring a password reset after the April 2026
+    security migration), pull the alert or inline error text so we can
+    classify and log the real failure reason instead of the leading blank
+    lines + `<!DOCTYPE html>` of the page.
+    """
+    for pattern in (
+        r'id="prompt-alert"[^>]*>(.*?)</div>',
+        r'class="[^"]*ulp-input-error-message[^"]*"[^>]*>(.*?)</span>',
+        r'class="[^"]*ulp-validator-error[^"]*"[^>]*>(.*?)</div>',
+    ):
+        m = re.search(pattern, html, re.DOTALL)
+        if m:
+            cleaned = re.sub(r"<[^>]+>", " ", m.group(1))
+            cleaned = re.sub(r"\s+", " ", cleaned).strip()
+            if cleaned:
+                return cleaned
+    return None
+
+
 async def _post_login_form(
     session: aiohttp.ClientSession, url: str, state: str, form: dict
 ) -> str:
@@ -297,28 +333,42 @@ async def _post_login_form(
             text = await resp.text()
             # Auth0 ULP renders field-level errors as
             #   class="ulp-input-error-message" data-error-code="<code>"
-            # Surface the first code so the user sees a meaningful reason
-            # instead of a bare HTTP 400.
+            # and top-level banners as
+            #   id="prompt-alert" ... data-error-code="<code>"
+            # Surface the first code (or alert text) so the user sees a
+            # meaningful reason instead of a bare HTTP 400.
             m = re.search(r'data-error-code="([^"]+)"', text)
             code = m.group(1) if m else None
+            alert_text = _extract_ulp_alert_text(text)
             _LOGGER.warning(
-                "POST %s -> %s; auth0 error code=%s", url, resp.status, code
+                "POST %s -> %s; auth0 error code=%s alert=%r",
+                url,
+                resp.status,
+                code,
+                alert_text,
             )
             if code:
                 # Auth0 ULP renders field-level errors (wrong password,
-                # locked account, etc) with a data-error-code. Surface
-                # those as InvalidCredentialsError so the config flow
-                # maps them to "auth" instead of "internal".
-                if any(
-                    s in code.lower()
-                    for s in ("password", "credential", "user", "lock", "blocked")
-                ):
+                # invalid email format, locked account, etc.) with a
+                # data-error-code. Surface those as InvalidCredentialsError
+                # so the config flow maps them to "auth" instead of
+                # "auth0_step_login_form" / "internal".
+                if any(s in code.lower() for s in _CREDENTIAL_ERROR_KEYWORDS):
                     raise InvalidCredentialsError(f"login rejected ({code})")
                 raise RuntimeError(
                     f"step=login_form url={url} status={resp.status} auth0_code={code}"
                 )
+            # An HTTP 400 from the password step (or a 400 with a rendered
+            # ULP alert banner) is an Auth0 login rejection even when the
+            # response HTML omits `data-error-code` (issue #295 — e.g.
+            # accounts that haven't completed the post-April-2026 password
+            # reset / EULA flow or custom DB script rejections).
+            if resp.status == 400 and (url == PASSWORD_URL or alert_text is not None):
+                detail = alert_text or "HTTP 400 at password step (no error code)"
+                raise InvalidCredentialsError(f"login rejected ({detail})")
+            snippet = alert_text or re.sub(r"\s+", " ", text).strip()[:200]
             raise RuntimeError(
-                f"step=login_form url={url} status={resp.status} no_code body={text[:200]!r}"
+                f"step=login_form url={url} status={resp.status} no_code body={snippet!r}"
             )
         return resp.headers["Location"]
 
@@ -368,7 +418,7 @@ async def _identifier_step(
 ) -> str:
     form = {
         "state": state,
-        "username": email,
+        "username": email.strip(),
         "js-available": "true",
         "webauthn-available": "true",
         "is-brave": "false",
@@ -390,7 +440,7 @@ async def _password_step(
 ) -> str:
     form = {
         "state": state,
-        "username": email,
+        "username": email.strip(),
         "password": password,
         "action": "default",
     }
@@ -624,7 +674,11 @@ class GeneracLoginFlow:
         # Long-lived, HA-managed session — NOT owned here. Only used to
         # construct the returned GeneracAuth (which uses it for refresh).
         self._api_session = api_session
-        self._email = email
+        # Strip accidental surrounding whitespace from the email (e.g.
+        # copy-paste artifacts) so the identifier step doesn't fail with
+        # `invalid-email-format` and both steps send the exact same
+        # normalized identifier.
+        self._email = email.strip()
         self._password = password
         self._key = DPoPKey.generate()
         self._verifier, self._challenge = _make_pkce()
