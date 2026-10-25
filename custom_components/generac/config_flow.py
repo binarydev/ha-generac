@@ -157,7 +157,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            email = user_input[CONF_USERNAME]
+            email = user_input[CONF_USERNAME].strip()
             password = user_input[CONF_PASSWORD]
 
             try:
@@ -196,7 +196,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
 
         if user_input is not None:
-            email = user_input[CONF_USERNAME]
+            email = user_input[CONF_USERNAME].strip()
             password = user_input[CONF_PASSWORD]
             scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
@@ -281,7 +281,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # Older config entries may not have stored email under CONF_USERNAME,
         # so fall back to the entry title (which we set to the email at
         # create time).
-        default_email = entry.data.get(CONF_USERNAME) or entry.title or ""
+        default_email = (entry.data.get(CONF_USERNAME) or entry.title or "").strip()
 
         if user_input is not None:
             password = user_input[CONF_PASSWORD]

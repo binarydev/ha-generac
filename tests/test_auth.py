@@ -6,11 +6,15 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 
 import pytest
+from custom_components.generac.auth import _identifier_step
+from custom_components.generac.auth import _password_step
 from custom_components.generac.auth import _post_login_form
 from custom_components.generac.auth import DPoPKey
 from custom_components.generac.auth import GeneracAuth
+from custom_components.generac.auth import IDENTIFIER_URL
 from custom_components.generac.auth import InvalidCredentialsError
 from custom_components.generac.auth import InvalidGrantError
+from custom_components.generac.auth import PASSWORD_URL
 
 
 def _acm(resp):
@@ -206,9 +210,11 @@ def _ulp_error_resp(status: int, code: str | None):
     [
         "invalid-password",
         "invalid_credentials",
+        "invalid-email-format",
         "user-not-found",
         "account-locked",
         "user-blocked",
+        "too-many-attempts",
     ],
 )
 @pytest.mark.asyncio
@@ -220,7 +226,7 @@ async def test_post_login_form_credential_codes_raise_invalid_credentials(code):
     with pytest.raises(InvalidCredentialsError):
         await _post_login_form(
             session,
-            "https://auth.ecobee.com/u/login/password",
+            PASSWORD_URL,
             "state-xyz",
             {"password": "x"},
         )
@@ -235,7 +241,7 @@ async def test_post_login_form_unknown_code_raises_runtime_error():
     with pytest.raises(RuntimeError) as exc_info:
         await _post_login_form(
             session,
-            "https://auth.ecobee.com/u/login/password",
+            PASSWORD_URL,
             "state-xyz",
             {"password": "x"},
         )
@@ -244,15 +250,91 @@ async def test_post_login_form_unknown_code_raises_runtime_error():
 
 @pytest.mark.asyncio
 async def test_post_login_form_no_code_raises_runtime_error():
-    """A non-redirect with no parseable error code becomes a plain RuntimeError."""
+    """A non-redirect with no parseable error code on non-password step becomes a plain RuntimeError."""
     session = MagicMock()
-    session.post = MagicMock(return_value=_acm(_ulp_error_resp(400, None)))
+    session.post = MagicMock(return_value=_acm(_ulp_error_resp(500, None)))
 
     with pytest.raises(RuntimeError) as exc_info:
         await _post_login_form(
             session,
-            "https://auth.ecobee.com/u/login/password",
+            PASSWORD_URL,
             "state-xyz",
             {"password": "x"},
         )
     assert not isinstance(exc_info.value, InvalidCredentialsError)
+
+
+@pytest.mark.asyncio
+async def test_post_login_form_password_400_no_code_raises_invalid_credentials():
+    """Regression (issue #295): HTTP 400 on /u/login/password with no data-error-code
+    (e.g. React ULP page returned for an account requiring a password reset) must
+    raise InvalidCredentialsError instead of an uncaught RuntimeError."""
+    session = MagicMock()
+    resp = MagicMock()
+    resp.status = 400
+    resp.text = AsyncMock(
+        return_value='\n\n\n<!DOCTYPE html><html lang=\'en\'><head><meta name="ulp-version" content="1.125.0"></head><body></body></html>'
+    )
+    resp.headers = {}
+    session.post = MagicMock(return_value=_acm(resp))
+
+    with pytest.raises(InvalidCredentialsError):
+        await _post_login_form(
+            session,
+            PASSWORD_URL,
+            "state-xyz",
+            {"password": "x"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_post_login_form_prompt_alert_without_code_raises_invalid_credentials():
+    """An HTTP 400 with a #prompt-alert banner but no data-error-code surfaces the alert text."""
+    session = MagicMock()
+    resp = MagicMock()
+    resp.status = 400
+    resp.text = AsyncMock(
+        return_value='<html><body><div id="prompt-alert" role="alert"><p>Password reset required</p></div></body></html>'
+    )
+    resp.headers = {}
+    session.post = MagicMock(return_value=_acm(resp))
+
+    with pytest.raises(InvalidCredentialsError) as exc_info:
+        await _post_login_form(
+            session,
+            IDENTIFIER_URL,
+            "state-xyz",
+            {"username": "user@example.com"},
+        )
+    assert "Password reset required" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_identifier_and_password_steps_strip_email_whitespace():
+    """Leading/trailing whitespace in email must be stripped before posting to Auth0."""
+    session = MagicMock()
+
+    id_resp = MagicMock()
+    id_resp.status = 302
+    id_resp.headers = {"Location": "/u/login/password?state=pw-state"}
+
+    pw_resp = MagicMock()
+    pw_resp.status = 302
+    pw_resp.headers = {"Location": "/authorize/resume?state=resume-state"}
+
+    session.post = MagicMock(side_effect=[_acm(id_resp), _acm(pw_resp)])
+
+    state1 = await _identifier_step(session, "init-state", "  user@example.com \n")
+    assert state1 == "pw-state"
+    id_body = session.post.call_args_list[0].kwargs["data"]
+    assert "username=user%40example.com" in id_body
+    assert "+" not in id_body and "%20" not in id_body
+
+    state2 = await _password_step(
+        session, "pw-state", "  user@example.com \n", " pass "
+    )
+    assert state2 == "resume-state"
+    pw_body = session.post.call_args_list[1].kwargs["data"]
+    assert "username=user%40example.com" in pw_body
+    # Password whitespace is preserved verbatim
+    assert "password=+pass+" in pw_body
