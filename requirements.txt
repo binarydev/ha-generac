@@ -9,4 +9,4 @@ pytest-asyncio==1.4.0
 pytest-socket==0.8.0
 respx==0.23.1
 aioresponses==0.7.9
-Brotli==1.2.0
+Brotli==1.2.1
