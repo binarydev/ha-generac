@@ -1061,10 +1061,26 @@ class GeneracAuth:
                     "failed; the next HA restart will log in again"
                 )
 
-    async def force_refresh(self) -> str:
-        """Refresh once after the resource server rejects an access token."""
+    async def force_refresh(self, rejected_token: str) -> str:
+        """Refresh once after the resource server rejects an access token.
+
+        Callers pass the token that was rejected. If another caller already
+        replaced it while we waited for the lock, reuse that token instead of
+        spending a second refresh on the same rejection.
+        """
         async with self._refresh_lock:
-            await self._refresh()
+            if self._access_token is not None and self._access_token != rejected_token:
+                return self._access_token
+            try:
+                await self._refresh()
+            except InvalidGrantError:
+                if self._password is None or not self._email:
+                    raise
+                _LOGGER.warning(
+                    "Generac refresh token rejected after an API 401; logging "
+                    "in again with the stored password"
+                )
+                await self._relogin()
             assert self._access_token is not None
             return self._access_token
 
