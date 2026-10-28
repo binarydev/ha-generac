@@ -28,8 +28,13 @@ async def async_get_config_entry_diagnostics(
 
     diagnostics_data = {
         "status": "loaded",
+        # Keyed by position: the coordinator keys devices by apparatusId,
+        # which is itself redacted below.
         "data": redact(
-            {gen_id: asdict(item) for gen_id, item in (coordinator.data or {}).items()},
+            {
+                f"device_{index}": asdict(item)
+                for index, item in enumerate((coordinator.data or {}).values())
+            },
             False,
         ),
     }
@@ -50,9 +55,9 @@ def redact(data: Any, redact_all: bool) -> Any:
         if "@" in address:
             return "REDACTED_EMAIL"
         if is_ipv4(data):
-            return "REDACTED_IPV6"
-        if is_ipv6(data):
             return "REDACTED_IPV4"
+        if is_ipv6(data):
+            return "REDACTED_IPV6"
     if redact_all:
         return "REDACTED"
     return data
@@ -78,6 +83,9 @@ _REDACTED_KEYS = {
     "deviceSsid",
     "serialNumber",
     "apparatusId",
+    "panelId",
+    "shortDeviceId",
+    "deviceId",
     "address",
     "localizedAddress",
 }

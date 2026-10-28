@@ -30,6 +30,8 @@ async def async_setup_entry(
 class HeroImageSensor(GeneracEntity, ImageEntity):
     """generac Image class."""
 
+    entity_key = "hero_image"
+
     def __init__(
         self,
         coordinator: GeneracDataUpdateCoordinator,
@@ -41,11 +43,6 @@ class HeroImageSensor(GeneracEntity, ImageEntity):
         """Initialize device."""
         super().__init__(coordinator, config_entry, device_id, item)
         ImageEntity.__init__(self, hass)
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
 
     @property
     def image_url(self):

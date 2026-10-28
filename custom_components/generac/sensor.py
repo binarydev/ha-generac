@@ -61,6 +61,9 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
             ModelNumberSensor,
             DeviceSsidSensor,
             PanelIDSensor,
+            # Always created for generators so existing registry entries are
+            # never orphaned; it reports unknown when the value is missing.
+            SignalStrengthSensor,
         ]
     elif item.apparatus.type == DEVICE_TYPE_PROPANE_MONITOR:
         lst = [
@@ -82,7 +85,10 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
         and item.apparatusDetail.weather.temperature.value is not None
     ):
         lst.append(OutdoorTemperatureSensor)
-    if get_apparatus_property_value(item, "signalStrength") is not None:
+    if (
+        SignalStrengthSensor not in lst
+        and get_apparatus_property_value(item, "signalStrength") is not None
+    ):
         lst.append(SignalStrengthSensor)
     if get_apparatus_property_value(item, "batteryLevel") is not None:
         lst.append(DeviceBatteryLevelSensor)
@@ -163,6 +169,8 @@ def _safe_float(val, label: str = ""):
 class StatusSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
+    entity_key = "status"
+
     options = [
         "Ready",
         "Running",
@@ -176,11 +184,6 @@ class StatusSensor(GeneracEntity, SensorEntity):
     ]
     device_class = SensorDeviceClass.ENUM
     icon = "mdi:power"
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
 
     @property
     def native_value(self):
@@ -202,6 +205,8 @@ class StatusSensor(GeneracEntity, SensorEntity):
 class DeviceTypeSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
+    entity_key = "device_type"
+
     options = [
         "Wifi",
         "Ethernet",
@@ -210,11 +215,6 @@ class DeviceTypeSensor(GeneracEntity, SensorEntity):
         "Unknown",
     ]
     device_class = SensorDeviceClass.ENUM
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
 
     @property
     def native_value(self):
@@ -237,13 +237,10 @@ class DeviceTypeSensor(GeneracEntity, SensorEntity):
 class RunTimeSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
+    entity_key = "run_time"
+
     device_class = SensorDeviceClass.DURATION
     native_unit_of_measurement = "h"
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
 
     @property
     def native_value(self):
@@ -255,13 +252,10 @@ class RunTimeSensor(GeneracEntity, SensorEntity):
 class ProtectionTimeSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
+    entity_key = "protection_time"
+
     device_class = SensorDeviceClass.DURATION
     native_unit_of_measurement = "h"
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
 
     @property
     def native_value(self):
@@ -273,12 +267,9 @@ class ProtectionTimeSensor(GeneracEntity, SensorEntity):
 class ActivationDateSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
-    device_class = SensorDeviceClass.TIMESTAMP
+    entity_key = "activation_date"
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    device_class = SensorDeviceClass.TIMESTAMP
 
     @property
     def native_value(self):
@@ -292,12 +283,9 @@ class ActivationDateSensor(GeneracEntity, SensorEntity):
 class LastSeenSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
-    device_class = SensorDeviceClass.TIMESTAMP
+    entity_key = "last_seen"
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    device_class = SensorDeviceClass.TIMESTAMP
 
     @property
     def native_value(self):
@@ -311,12 +299,9 @@ class LastSeenSensor(GeneracEntity, SensorEntity):
 class ConnectionTimeSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
-    device_class = SensorDeviceClass.TIMESTAMP
+    entity_key = "connection_time"
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    device_class = SensorDeviceClass.TIMESTAMP
 
     @property
     def native_value(self):
@@ -330,14 +315,11 @@ class ConnectionTimeSensor(GeneracEntity, SensorEntity):
 class BatteryVoltageSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
+    entity_key = "battery_voltage"
+
     device_class = SensorDeviceClass.VOLTAGE
     native_unit_of_measurement = UnitOfElectricPotential.VOLT
     suggested_display_precision = 1
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
 
     @property
     def native_value(self):
@@ -349,13 +331,11 @@ class BatteryVoltageSensor(GeneracEntity, SensorEntity):
 class ExerciseMinutesSensor(GeneracEntity, SensorEntity):
     """Exercise duration reported by Mobile Link."""
 
+    entity_key = "exercise_minutes"
+    entity_label = "Exercise Duration"
+
     device_class = SensorDeviceClass.DURATION
     native_unit_of_measurement = "min"
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
 
     @property
     def native_value(self):
@@ -366,12 +346,9 @@ class ExerciseMinutesSensor(GeneracEntity, SensorEntity):
 class OutdoorTemperatureSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
-    device_class = SensorDeviceClass.TEMPERATURE
+    entity_key = "outdoor_temperature"
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    device_class = SensorDeviceClass.TEMPERATURE
 
     @property
     def native_unit_of_measurement(self):
@@ -398,10 +375,7 @@ class OutdoorTemperatureSensor(GeneracEntity, SensorEntity):
 
 
 class SerialNumberSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "serial_number"
 
     @property
     def native_value(self):
@@ -410,10 +384,7 @@ class SerialNumberSensor(GeneracEntity, SensorEntity):
 
 
 class ModelNumberSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "model_number"
 
     @property
     def native_value(self):
@@ -422,10 +393,7 @@ class ModelNumberSensor(GeneracEntity, SensorEntity):
 
 
 class DeviceSsidSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "device_ssid"
 
     @property
     def native_value(self):
@@ -434,10 +402,7 @@ class DeviceSsidSensor(GeneracEntity, SensorEntity):
 
 
 class StatusLabelSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "status_label"
 
     @property
     def native_value(self):
@@ -446,10 +411,7 @@ class StatusLabelSensor(GeneracEntity, SensorEntity):
 
 
 class StatusTextSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "status_text"
 
     @property
     def native_value(self):
@@ -458,10 +420,7 @@ class StatusTextSensor(GeneracEntity, SensorEntity):
 
 
 class AddressSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "address"
 
     @property
     def native_value(self):
@@ -470,10 +429,7 @@ class AddressSensor(GeneracEntity, SensorEntity):
 
 
 class DealerNameSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "dealer_name"
 
     @property
     def native_value(self):
@@ -482,10 +438,7 @@ class DealerNameSensor(GeneracEntity, SensorEntity):
 
 
 class DealerEmailSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "dealer_email"
 
     @property
     def native_value(self):
@@ -494,10 +447,7 @@ class DealerEmailSensor(GeneracEntity, SensorEntity):
 
 
 class DealerPhoneSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "dealer_phone"
 
     @property
     def native_value(self):
@@ -506,10 +456,7 @@ class DealerPhoneSensor(GeneracEntity, SensorEntity):
 
 
 class PanelIDSensor(GeneracEntity, SensorEntity):
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "panel_id"
 
     @property
     def native_value(self):
@@ -521,10 +468,7 @@ class PanelIDSensor(GeneracEntity, SensorEntity):
 class CapacitySensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "capacity"
 
     @property
     def native_value(self):
@@ -535,10 +479,7 @@ class CapacitySensor(GeneracEntity, SensorEntity):
 class FuelTypeSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "fuel_type"
 
     @property
     def native_value(self):
@@ -549,10 +490,7 @@ class FuelTypeSensor(GeneracEntity, SensorEntity):
 class OrientationSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "orientation"
 
     @property
     def native_value(self):
@@ -563,10 +501,7 @@ class OrientationSensor(GeneracEntity, SensorEntity):
 class BatteryLevelSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "battery_level"
 
     @property
     def native_value(self):
@@ -577,12 +512,9 @@ class BatteryLevelSensor(GeneracEntity, SensorEntity):
 class LastReadingDateSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
-    device_class = SensorDeviceClass.TIMESTAMP
+    entity_key = "last_reading"
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    device_class = SensorDeviceClass.TIMESTAMP
 
     @property
     def native_value(self):
@@ -596,31 +528,26 @@ class LastReadingDateSensor(GeneracEntity, SensorEntity):
 class FuelLevelSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
+    entity_key = "fuel_level"
+
     device_class = SensorDeviceClass.BATTERY
     native_unit_of_measurement = PERCENTAGE
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
-
-    @property
     def native_value(self):
         """Return the state of the sensor."""
-        return get_prop_value(self.aparatus_detail.tuProperties, 9, None)
+        val = get_prop_value(self.aparatus_detail.tuProperties, 9, None)
+        return _safe_float(val, "fuel_level")
 
 
 class SignalStrengthSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
+    entity_key = "signal_strength"
+
     _attr_icon = "mdi:signal-cellular-2"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
 
     @property
     def native_value(self):
@@ -634,13 +561,10 @@ class SignalStrengthSensor(GeneracEntity, SensorEntity):
 class DeviceBatteryLevelSensor(GeneracEntity, SensorEntity):
     """Battery level reported by the Mobile Link device."""
 
+    entity_key = "device_battery_level"
+
     _attr_device_class = SensorDeviceClass.BATTERY
     _attr_native_unit_of_measurement = PERCENTAGE
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
 
     @property
     def native_value(self):

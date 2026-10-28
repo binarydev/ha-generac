@@ -1,6 +1,5 @@
 """Generac entity base classes and friendly-name helpers."""
 import logging
-import re
 from typing import ClassVar
 
 from homeassistant.config_entries import ConfigEntry
@@ -20,36 +19,15 @@ _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 
 _ENTITY_WORDS = {
-    "api": "API",
     "id": "ID",
     "ssid": "SSID",
-    "vpp": "VPP",
-}
-_ENTITY_KEY_OVERRIDES = {
-    "GeneracConnectedSensor": "is_connected",
-    "GeneracConnectingSensor": "is_connecting",
-    "GeneracMaintenanceAlertSensor": "has_maintenance_alert",
-    "GeneracWarningSensor": "show_warning",
 }
 
 
-def _camel_to_snake(value: str) -> str:
-    """Convert a class name fragment into an entity suffix."""
-    value = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", "_", value)
-    value = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", value)
-    return value.lower()
-
-
-def parse_entity_name(entity_name: str) -> str:
-    """Convert an internal entity name into a readable label."""
-    words = re.split(r"[_\s-]+", entity_name.strip())
-    domain_words = DEFAULT_NAME.split("_")
-    if words[: len(domain_words)] == domain_words:
-        words = words[len(domain_words) :]
-    if words and words[0].isdigit():
-        words = words[1:]
+def parse_entity_name(entity_key: str) -> str:
+    """Convert a stable entity key into a readable label."""
     return " ".join(
-        _ENTITY_WORDS.get(word.lower(), word.capitalize()) for word in words
+        _ENTITY_WORDS.get(word, word.capitalize()) for word in entity_key.split("_")
     )
 
 
@@ -59,7 +37,14 @@ _EMPTY_ITEM = Item(apparatus=Apparatus(), apparatusDetail=ApparatusDetail(), emp
 class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
     """Base entity with stable registry IDs and readable display names."""
 
-    _entity_key: ClassVar[str | None] = None
+    _attr_has_entity_name = True
+
+    # Stable suffix of the entity registry unique_id. Set explicitly on every
+    # entity class and never derive it from the class name: changing it
+    # orphans the user's existing entity and creates a duplicate.
+    entity_key: ClassVar[str]
+    # Display label when the one derived from entity_key reads poorly.
+    entity_label: ClassVar[str | None] = None
 
     def __init__(
         self,
@@ -76,20 +61,17 @@ class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self.config_entry.entry_id}_{self.device_id}_{self._technical_name}"
+        # Byte-for-byte the historical format, which embedded the old
+        # technical name "generac_<device_id>_<key>".
+        return (
+            f"{self.config_entry.entry_id}_{self.device_id}_"
+            f"{DEFAULT_NAME}_{self.device_id}_{self.entity_key}"
+        )
 
     @property
-    def _technical_name(self) -> str:
-        """Return the stable technical name used by the entity registry."""
-        entity_key = self._entity_key or _ENTITY_KEY_OVERRIDES.get(
-            type(self).__name__,
-            _camel_to_snake(type(self).__name__.removesuffix("Sensor")),
-        )
-        return f"{DEFAULT_NAME}_{self.device_id}_{entity_key}"
-
-    def _friendly_name(self) -> str:
-        """Return the readable display label for this entity."""
-        return parse_entity_name(self._technical_name)
+    def name(self):
+        """Return the entity label; Home Assistant prefixes the device name."""
+        return self.entity_label or parse_entity_name(self.entity_key)
 
     @property
     def device_info(self):
@@ -134,5 +116,5 @@ class GeneracEntity(CoordinatorEntity[GeneracDataUpdateCoordinator]):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         self.item = (self.coordinator.data or {}).get(self.device_id, _EMPTY_ITEM)
-        _LOGGER.debug("Updated Generac entity %s", self.unique_id)
+        _LOGGER.debug("Updated Generac entity %s", self.entity_id)
         self.async_write_ha_state()

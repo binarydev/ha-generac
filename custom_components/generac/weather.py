@@ -36,10 +36,7 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
 class WeatherSensor(GeneracEntity, WeatherEntity):
     """generac Weather class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._friendly_name()
+    entity_key = "weather"
 
     @property
     def condition(self):
