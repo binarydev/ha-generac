@@ -996,9 +996,16 @@ class GeneracAuth:
             assert self._access_token is not None
             return self._access_token
 
-    async def force_refresh(self) -> str:
-        """Refresh once after the resource server rejects an access token."""
+    async def force_refresh(self, rejected_token: str) -> str:
+        """Refresh once after the resource server rejects an access token.
+
+        Callers pass the token that was rejected. If another caller already
+        replaced it while we waited for the lock, reuse that token instead of
+        spending a second refresh on the same rejection.
+        """
         async with self._refresh_lock:
+            if self._access_token is not None and self._access_token != rejected_token:
+                return self._access_token
             await self._refresh()
             assert self._access_token is not None
             return self._access_token

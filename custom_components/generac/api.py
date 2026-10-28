@@ -114,6 +114,62 @@ class GeneracApiClient:
         except InvalidGrantError as ex:
             raise InvalidCredentialsException(str(ex)) from ex
 
+        url = API_BASE + endpoint
+        refreshed = False
+        retried = False
+        while True:
+            try:
+                status, data = await self._get(url, access_token)
+            except (asyncio.TimeoutError, aiohttp.ClientConnectionError) as ex:
+                # GET is idempotent: retry a transient transport failure once.
+                if retried:
+                    raise IOError(
+                        f"GET {url} failed after retry: {type(ex).__name__}: {ex}"
+                    ) from ex
+                retried = True
+                _LOGGER.warning(
+                    "Mobile Link request for %s failed (%s); retrying once",
+                    endpoint,
+                    type(ex).__name__,
+                )
+                await asyncio.sleep(REQUEST_RETRY_DELAY)
+                continue
+            except Exception as ex:
+                raise IOError(f"GET {url} failed: {type(ex).__name__}: {ex}") from ex
+
+            if status == 204:
+                return None
+
+            if status == 401:
+                if refreshed:
+                    raise SessionExpiredException(
+                        f"API returned 401 for {endpoint} after token refresh"
+                    )
+                refreshed = True
+                _LOGGER.warning(
+                    "Mobile Link rejected the access token for %s; "
+                    "forcing one token refresh",
+                    endpoint,
+                )
+                # Outside the transport try/except above on purpose: an
+                # InvalidGrantError here must reach the coordinator as
+                # InvalidCredentialsException (-> reauth), not as IOError.
+                try:
+                    access_token = await self._auth.force_refresh(access_token)
+                except InvalidGrantError as ex:
+                    raise InvalidCredentialsException(str(ex)) from ex
+                continue
+
+            if status != 200:
+                raise SessionExpiredException(
+                    f"API returned status code {status} for {endpoint}: {data}"
+                )
+
+            _LOGGER.debug("getEndpoint %s", json.dumps(data))
+            return data
+
+    async def _get(self, url: str, access_token: str) -> tuple[int, object]:
+        """GET `url`; return (status, JSON body for 200, text excerpt otherwise)."""
         # Bearer is intentional here, even though this access token is
         # DPoP-*bound* (authorize sends dpop_jkt, so the token carries a
         # cnf.jkt claim). Probed 2026-06-25 (probe_rs_dpop.py): the MobileLink
@@ -131,58 +187,16 @@ class GeneracApiClient:
             "Accept": "application/json",
             "User-Agent": USER_AGENT_API,
         }
-
-        url = API_BASE + endpoint
-        for attempt in range(2):
+        async with self._session.get(
+            url, headers=headers, timeout=REQUEST_TIMEOUT
+        ) as response:
+            if response.status == 200:
+                return response.status, await response.json()
+            if response.status in (204, 401):
+                return response.status, None
+            body = ""
             try:
-                async with self._session.get(
-                    url, headers=headers, timeout=REQUEST_TIMEOUT
-                ) as response:
-                    if response.status == 204:
-                        return None
-
-                    if response.status == 401 and attempt == 0:
-                        _LOGGER.warning(
-                            "Mobile Link rejected the access token for %s; "
-                            "forcing one token refresh",
-                            endpoint,
-                        )
-                        try:
-                            access_token = await self._auth.force_refresh()
-                        except InvalidGrantError as ex:
-                            raise InvalidCredentialsException(str(ex)) from ex
-                        headers["Authorization"] = f"Bearer {access_token}"
-                        continue
-
-                    if response.status == 401:
-                        raise SessionExpiredException(
-                            f"API returned 401 for {endpoint} after token refresh"
-                        )
-
-                    if response.status != 200:
-                        body = ""
-                        try:
-                            body = (await response.text())[:200]
-                        except Exception:
-                            pass
-                        raise SessionExpiredException(
-                            f"API returned status code {response.status} for "
-                            f"{endpoint}: {body}"
-                        )
-
-                    data = await response.json()
-                    _LOGGER.debug("getEndpoint %s", json.dumps(data))
-                    return data
-            except SessionExpiredException:
-                raise
-            except asyncio.TimeoutError as ex:
-                if attempt == 0:
-                    _LOGGER.warning(
-                        "Mobile Link request timed out for %s; retrying once",
-                        endpoint,
-                    )
-                    await asyncio.sleep(REQUEST_RETRY_DELAY)
-                    continue
-                raise IOError(f"GET {url} timed out after retry") from ex
-            except Exception as ex:
-                raise IOError(f"GET {url} failed: {type(ex).__name__}: {ex}") from ex
+                body = (await response.text())[:200]
+            except Exception:
+                pass
+            return response.status, body

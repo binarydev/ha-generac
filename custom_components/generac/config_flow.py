@@ -413,13 +413,18 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if flow is not None:
             await flow.aclose()
 
-    async def async_remove(self) -> None:
-        """Close the login session if the flow is abandoned mid-MFA."""
-        if self._login_flow is not None:
-            try:
-                await self._login_flow.aclose()
-            except Exception:  # noqa: BLE001
-                _LOGGER.debug("Error closing login flow on remove", exc_info=True)
+    @callback
+    def async_remove(self) -> None:
+        """Close the login session if the flow is abandoned mid-MFA.
+
+        HA calls this synchronously when the flow is removed, so an async
+        override would never run. Schedule the close instead; aclose() is
+        idempotent and never raises.
+        """
+        flow = self._login_flow
+        self._login_flow = None
+        if flow is not None:
+            self.hass.async_create_task(flow.aclose())
 
     @staticmethod
     @callback

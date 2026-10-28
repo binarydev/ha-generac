@@ -64,6 +64,7 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
             # Network timeouts and connection failures are transient and do
             # not indicate that the saved credentials need reauthentication.
             _LOGGER.warning("Generac cloud request temporarily failed: %s", ex)
+            self.is_online = False
             raise UpdateFailed(str(ex)) from ex
         except Exception as exception:
             _LOGGER.exception("Unexpected error refreshing Generac data")
