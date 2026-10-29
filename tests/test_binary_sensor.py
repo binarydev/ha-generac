@@ -37,7 +37,7 @@ async def test_connected_sensor(hass):
     item = get_mock_item(True, False, False, False)
     sensor = GeneracConnectedSensor(coordinator, entry, "12345", item)
     assert sensor.is_on is True
-    assert sensor.name == "generac_12345_is_connected"
+    assert sensor.name == "Connected"
     assert sensor.device_class == "connectivity"
 
     # Test when not connected
@@ -55,7 +55,7 @@ async def test_connecting_sensor(hass):
     item = get_mock_item(False, True, False, False)
     sensor = GeneracConnectingSensor(coordinator, entry, "12345", item)
     assert sensor.is_on is True
-    assert sensor.name == "generac_12345_is_connecting"
+    assert sensor.name == "Connecting"
     assert sensor.device_class == "connectivity"
 
     # Test when not connecting
@@ -73,7 +73,7 @@ async def test_maintenance_alert_sensor(hass):
     item = get_mock_item(False, False, True, False)
     sensor = GeneracMaintenanceAlertSensor(coordinator, entry, "12345", item)
     assert sensor.is_on is True
-    assert sensor.name == "generac_12345_has_maintenance_alert"
+    assert sensor.name == "Maintenance Alert"
     assert sensor.device_class == "safety"
 
     # Test when maintenance alert is not active
@@ -91,7 +91,7 @@ async def test_warning_sensor(hass):
     item = get_mock_item(False, False, False, True)
     sensor = GeneracWarningSensor(coordinator, entry, "12345", item)
     assert sensor.is_on is True
-    assert sensor.name == "generac_12345_show_warning"
+    assert sensor.name == "Warning"
     assert sensor.device_class == "safety"
 
     # Test when warning is not active

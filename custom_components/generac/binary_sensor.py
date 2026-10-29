@@ -7,7 +7,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DEFAULT_NAME
 from .const import DOMAIN
 from .coordinator import GeneracDataUpdateCoordinator
 from .entity import GeneracEntity
@@ -36,17 +35,11 @@ def sensors() -> Type[GeneracEntity]:
     ]
 
 
-def sensor_name(self, name_label):
-    return f"{DEFAULT_NAME}_{self.device_id}_{name_label}"
-
-
 class GeneracConnectedSensor(GeneracEntity, BinarySensorEntity):
     """generac binary_sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the binary_sensor."""
-        return sensor_name(self, "is_connected")
+    entity_key = "is_connected"
+    entity_label = "Connected"
 
     @property
     def device_class(self):
@@ -62,10 +55,8 @@ class GeneracConnectedSensor(GeneracEntity, BinarySensorEntity):
 class GeneracConnectingSensor(GeneracEntity, BinarySensorEntity):
     """generac binary_sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the binary_sensor."""
-        return sensor_name(self, "is_connecting")
+    entity_key = "is_connecting"
+    entity_label = "Connecting"
 
     @property
     def device_class(self):
@@ -81,10 +72,8 @@ class GeneracConnectingSensor(GeneracEntity, BinarySensorEntity):
 class GeneracMaintenanceAlertSensor(GeneracEntity, BinarySensorEntity):
     """generac binary_sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the binary_sensor."""
-        return sensor_name(self, "has_maintenance_alert")
+    entity_key = "has_maintenance_alert"
+    entity_label = "Maintenance Alert"
 
     @property
     def device_class(self):
@@ -100,10 +89,8 @@ class GeneracMaintenanceAlertSensor(GeneracEntity, BinarySensorEntity):
 class GeneracWarningSensor(GeneracEntity, BinarySensorEntity):
     """generac binary_sensor class."""
 
-    @property
-    def name(self):
-        """Return the name of the binary_sensor."""
-        return sensor_name(self, "show_warning")
+    entity_key = "show_warning"
+    entity_label = "Warning"
 
     @property
     def device_class(self):

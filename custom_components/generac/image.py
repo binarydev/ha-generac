@@ -7,7 +7,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DEFAULT_NAME
 from .const import DOMAIN
 from .coordinator import GeneracDataUpdateCoordinator
 from .entity import GeneracEntity
@@ -31,6 +30,8 @@ async def async_setup_entry(
 class HeroImageSensor(GeneracEntity, ImageEntity):
     """generac Image class."""
 
+    entity_key = "hero_image"
+
     def __init__(
         self,
         coordinator: GeneracDataUpdateCoordinator,
@@ -42,11 +43,6 @@ class HeroImageSensor(GeneracEntity, ImageEntity):
         """Initialize device."""
         super().__init__(coordinator, config_entry, device_id, item)
         ImageEntity.__init__(self, hass)
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.device_id}_hero_image"
 
     @property
     def image_url(self):
