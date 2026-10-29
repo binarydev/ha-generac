@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 from custom_components.generac.auth import DPoPKey
 from custom_components.generac.auth import InvalidCredentialsError
+from custom_components.generac.auth import MfaRequiredError
 from custom_components.generac.const import CONF_DPOP_PEM
 from custom_components.generac.const import CONF_PASSWORD
 from custom_components.generac.const import CONF_REFRESH_TOKEN
@@ -487,3 +488,88 @@ async def test_reconfigure_does_not_double_reload_when_loaded(
         await hass.async_block_till_done()
 
     mock_reload.assert_not_called()
+
+
+@pytest.mark.parametrize("source", ["reauth", "reconfigure"])
+async def test_credential_update_drops_stale_legacy_secrets(
+    hass: HomeAssistant, source: str
+) -> None:
+    """Reauth/reconfigure replace credentials instead of merging old secrets in.
+
+    Entries created by the retired cookie/password flows still carry
+    `password` and `session_cookie`; a plain dict merge kept them forever.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="user@example.com",
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_PASSWORD: "legacy-password",
+            "session_cookie": "legacy-cookie",
+            CONF_REFRESH_TOKEN: "stale-rt",
+            CONF_DPOP_PEM: DPoPKey.generate().to_pem_str(),
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    # Only reauth takes the entry data at init. A reconfigure flow treats init
+    # data as submitted user input and would log in with the legacy password.
+    init_kwargs = {"data": entry.data} if source == "reauth" else {}
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": source, "entry_id": entry.entry_id},
+        **init_kwargs,
+    )
+    assert result["type"] == "form"
+    user_input = {CONF_PASSWORD: "new-pw"}
+    if source == "reconfigure":
+        user_input[CONF_USERNAME] = "user@example.com"
+
+    new_auth = _mock_auth(refresh_token="fresh-rt")
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=new_auth),
+    ), patch("custom_components.generac.async_setup_entry", return_value=True):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input
+        )
+        await hass.async_block_till_done()
+
+    assert result2["type"] == "abort"
+    assert dict(entry.data) == {
+        CONF_USERNAME: "user@example.com",
+        CONF_REFRESH_TOKEN: "fresh-rt",
+        CONF_DPOP_PEM: new_auth.pem_str,
+    }
+
+
+async def test_abandoned_mfa_flow_closes_login_session(hass: HomeAssistant) -> None:
+    """Aborting a flow paused on the MFA form closes the open login session.
+
+    HA calls FlowHandler.async_remove synchronously; an async override was
+    never awaited, so the session leaked.
+    """
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    login_flow = MagicMock()
+    login_flow.mfa_type = "sms"
+    login_flow.aclose = AsyncMock()
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(
+            side_effect=MfaRequiredError(login_flow, "sms", "https://x", "state")
+        ),
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_USERNAME: "user@example.com", CONF_PASSWORD: "hunter2"},
+        )
+    assert result2["type"] == "form"
+    assert result2["step_id"] == "mfa"
+
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.async_block_till_done()
+
+    login_flow.aclose.assert_awaited_once()

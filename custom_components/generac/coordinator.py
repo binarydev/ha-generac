@@ -60,6 +60,12 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
             _LOGGER.warning("Generac API session error: %s", ex)
             self.is_online = False
             raise UpdateFailed(f"API session error: {ex}") from ex
+        except OSError as ex:
+            # Network timeouts and connection failures are transient and do
+            # not indicate that the saved credentials need reauthentication.
+            _LOGGER.warning("Generac cloud request temporarily failed: %s", ex)
+            self.is_online = False
+            raise UpdateFailed(str(ex)) from ex
         except Exception as exception:
             _LOGGER.exception("Unexpected error refreshing Generac data")
             self.is_online = False

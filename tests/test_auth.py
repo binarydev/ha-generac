@@ -1,7 +1,10 @@
 """Tests for GeneracAuth refresh + Auth0 ULP form-parser error handling."""
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import time
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 
@@ -11,10 +14,12 @@ from custom_components.generac.auth import _password_step
 from custom_components.generac.auth import _post_login_form
 from custom_components.generac.auth import DPoPKey
 from custom_components.generac.auth import GeneracAuth
+from custom_components.generac.auth import GeneracLoginFlow
 from custom_components.generac.auth import IDENTIFIER_URL
 from custom_components.generac.auth import InvalidCredentialsError
 from custom_components.generac.auth import InvalidGrantError
 from custom_components.generac.auth import PASSWORD_URL
+from custom_components.generac.auth import REQUEST_TIMEOUT
 
 
 def _acm(resp):
@@ -338,3 +343,157 @@ async def test_identifier_and_password_steps_strip_email_whitespace():
     assert "username=user%40example.com" in pw_body
     # Password whitespace is preserved verbatim
     assert "password=+pass+" in pw_body
+
+
+# ---------------------------------------------------------------------------
+# Forced refresh after a resource-server 401, timeouts, secret hygiene
+# ---------------------------------------------------------------------------
+
+
+def _ok_token(access_token: str, expires_in: int = 3600):
+    """A 200 token response that yields to the loop, so callers interleave."""
+    resp = _token_resp(200, {"access_token": access_token, "expires_in": expires_in})
+    body = resp.text.return_value
+
+    async def _text():
+        await asyncio.sleep(0)
+        return body
+
+    resp.text = _text
+    return _acm(resp)
+
+
+@pytest.mark.asyncio
+async def test_ensure_access_token_reuses_valid_token():
+    """A non-expired access token is returned without a refresh."""
+    auth = _make_auth()
+    auth._access_token = "at-VALID"
+    auth._access_token_exp = time.time() + 3600
+    auth._session.post = MagicMock()
+
+    assert await auth.ensure_access_token() == "at-VALID"
+    auth._session.post.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ensure_access_token_refreshes_expired_token():
+    """An expired access token is refreshed with the bounded timeout."""
+    auth = _make_auth()
+    auth._access_token = "at-EXPIRED"
+    auth._access_token_exp = time.time() - 1
+    auth._session.post = MagicMock(return_value=_ok_token("at-NEW"))
+
+    assert await auth.ensure_access_token() == "at-NEW"
+    auth._session.post.assert_called_once()
+    assert auth._session.post.call_args.kwargs["timeout"] is REQUEST_TIMEOUT
+
+
+@pytest.mark.asyncio
+async def test_concurrent_callers_share_one_expiry_refresh():
+    """Concurrent callers that see an expired token trigger one refresh."""
+    auth = _make_auth()
+    auth._session.post = MagicMock(return_value=_ok_token("at-NEW"))
+
+    tokens = await asyncio.gather(*(auth.ensure_access_token() for _ in range(5)))
+
+    assert tokens == ["at-NEW"] * 5
+    auth._session.post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_force_refresh_refreshes_rejected_token():
+    """force_refresh() mints a new token even if the old one looks unexpired."""
+    auth = _make_auth()
+    auth._access_token = "at-REJECTED"
+    auth._access_token_exp = time.time() + 3600
+    auth._session.post = MagicMock(return_value=_ok_token("at-NEW"))
+
+    assert await auth.force_refresh("at-REJECTED") == "at-NEW"
+    auth._session.post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_force_refresh_shares_one_refresh():
+    """Callers rejected with the same token share one refresh (no RT stampede)."""
+    auth = _make_auth()
+    auth._access_token = "at-REJECTED"
+    auth._access_token_exp = time.time() + 3600
+    auth._session.post = MagicMock(return_value=_ok_token("at-NEW"))
+
+    tokens = await asyncio.gather(
+        *(auth.force_refresh("at-REJECTED") for _ in range(5))
+    )
+
+    assert tokens == ["at-NEW"] * 5
+    auth._session.post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_force_refresh_rotation_persists_once():
+    """A rotated refresh token from a forced refresh is persisted exactly once."""
+    auth = _make_auth(refresh_token="rt-OLD")
+    auth._access_token = "at-REJECTED"
+    auth._session.post = MagicMock(
+        return_value=_acm(
+            _token_resp(
+                200,
+                {
+                    "access_token": "at-NEW",
+                    "expires_in": 3600,
+                    "refresh_token": "rt-NEW",
+                },
+            )
+        )
+    )
+    persist_cb = AsyncMock()
+    auth.set_refresh_token_persist_callback(persist_cb)
+
+    await asyncio.gather(*(auth.force_refresh("at-REJECTED") for _ in range(3)))
+
+    persist_cb.assert_awaited_once_with("rt-NEW")
+    assert auth.refresh_token == "rt-NEW"
+
+
+@pytest.mark.asyncio
+async def test_force_refresh_invalid_grant_raises():
+    """A revoked refresh token during a forced refresh raises InvalidGrantError."""
+    auth = _make_auth(refresh_token="rt-REVOKED")
+    auth._access_token = "at-REJECTED"
+    auth._session.post = MagicMock(
+        return_value=_acm(_token_resp(403, {"error": "invalid_grant"}))
+    )
+
+    with pytest.raises(InvalidGrantError):
+        await auth.force_refresh("at-REJECTED")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "body", "expected"),
+    [
+        (403, {"error": "invalid_grant"}, InvalidGrantError),
+        (500, {"error": "server_error"}, RuntimeError),
+    ],
+)
+async def test_failed_refresh_does_not_expose_secrets(caplog, status, body, expected):
+    """Neither the exception nor the logs carry the refresh token or DPoP key."""
+    caplog.set_level(logging.DEBUG)
+    auth = _make_auth(refresh_token="rt-SECRET-VALUE")
+    auth._session.post = MagicMock(return_value=_acm(_token_resp(status, body)))
+
+    with pytest.raises(expected) as exc_info:
+        await auth.ensure_access_token()
+
+    pem_body = auth.pem_str.splitlines()[1]
+    for text in (str(exc_info.value), caplog.text):
+        assert "rt-SECRET-VALUE" not in text
+        assert pem_body not in text
+
+
+async def test_login_session_has_bounded_timeout():
+    """The isolated login session bounds every universal-login request."""
+    flow = GeneracLoginFlow(MagicMock(), "user@example.com", "pw")
+    try:
+        assert flow._login_session.timeout is REQUEST_TIMEOUT
+    finally:
+        await flow.aclose()

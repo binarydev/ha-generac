@@ -56,6 +56,17 @@ _MFA_METHOD_LABELS = {
     "otp": "your authenticator app",
     "email": "email",
 }
+# Credentials from the retired cookie / password flows. Reauth and
+# reconfigure replace them instead of merging them into the new entry data.
+_DISCARDED_AUTH_KEYS = frozenset({CONF_PASSWORD, "session_cookie"})
+
+
+def _replace_auth_data(existing: dict, new_data: dict) -> dict:
+    """Replace discarded credentials instead of retaining stale secrets."""
+    retained = {
+        key: value for key, value in existing.items() if key not in _DISCARDED_AUTH_KEYS
+    }
+    return {**retained, **new_data}
 
 
 def _map_runtime_error(msg: str) -> str:
@@ -260,7 +271,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # unload, surfacing as "failed to unload".
         self.hass.config_entries.async_update_entry(
             entry,
-            data={**entry.data, **entry_data},
+            data=_replace_auth_data(entry.data, entry_data),
             options=new_options,
         )
         self._reload_if_setup_failed(entry)
@@ -325,7 +336,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # reload here would race the listener-driven one in the loaded case and
         # surface as "failed to unload".
         self.hass.config_entries.async_update_entry(
-            entry, data={**entry.data, **entry_data}
+            entry, data=_replace_auth_data(entry.data, entry_data)
         )
         self._reload_if_setup_failed(entry)
         return self.async_abort(reason="reauth_successful")
@@ -402,13 +413,18 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if flow is not None:
             await flow.aclose()
 
-    async def async_remove(self) -> None:
-        """Close the login session if the flow is abandoned mid-MFA."""
-        if self._login_flow is not None:
-            try:
-                await self._login_flow.aclose()
-            except Exception:  # noqa: BLE001
-                _LOGGER.debug("Error closing login flow on remove", exc_info=True)
+    @callback
+    def async_remove(self) -> None:
+        """Close the login session if the flow is abandoned mid-MFA.
+
+        HA calls this synchronously when the flow is removed, so an async
+        override would never run. Schedule the close instead; aclose() is
+        idempotent and never raises.
+        """
+        flow = self._login_flow
+        self._login_flow = None
+        if flow is not None:
+            self.hass.async_create_task(flow.aclose())
 
     @staticmethod
     @callback

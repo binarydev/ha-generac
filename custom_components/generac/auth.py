@@ -40,6 +40,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
 _LOGGER = logging.getLogger(__name__)
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=45, connect=10, sock_read=30)
 
 AUTH0_DOMAIN = "auth.ecobee.com"
 AUTHORIZE_URL = f"https://{AUTH0_DOMAIN}/authorize"
@@ -686,7 +687,7 @@ class GeneracLoginFlow:
         # GeneracAuth.login's docstring for why this must stay isolated
         # from the shared session. We own it and close it in aclose().
         self._login_session: Optional[aiohttp.ClientSession] = aiohttp.ClientSession(
-            cookie_jar=aiohttp.CookieJar(unsafe=True)
+            cookie_jar=aiohttp.CookieJar(unsafe=True), timeout=REQUEST_TIMEOUT
         )
         # Populated when a code challenge pauses the flow.
         self._mfa_type: Optional[str] = None
@@ -995,6 +996,20 @@ class GeneracAuth:
             assert self._access_token is not None
             return self._access_token
 
+    async def force_refresh(self, rejected_token: str) -> str:
+        """Refresh once after the resource server rejects an access token.
+
+        Callers pass the token that was rejected. If another caller already
+        replaced it while we waited for the lock, reuse that token instead of
+        spending a second refresh on the same rejection.
+        """
+        async with self._refresh_lock:
+            if self._access_token is not None and self._access_token != rejected_token:
+                return self._access_token
+            await self._refresh()
+            assert self._access_token is not None
+            return self._access_token
+
     async def _refresh(self) -> None:
         body = {
             "grant_type": "refresh_token",
@@ -1011,7 +1026,7 @@ class GeneracAuth:
                 "User-Agent": USER_AGENT_API,
             }
             async with self._session.post(
-                TOKEN_URL, json=body, headers=headers
+                TOKEN_URL, json=body, headers=headers, timeout=REQUEST_TIMEOUT
             ) as resp:
                 text = await resp.text()
                 try:
