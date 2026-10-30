@@ -69,6 +69,13 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 
 This integration previously used a cookie-fishing authentication workflow. As of PR #267, it has now been replaced by a standard OAuth workflow similar to the mobile app, using your username and password, with auto-refreshing token retrieval. You no longer need to enter your cookie's string!
 
+### Session expiry (every ~90 days)
+
+Generac's sign-in sessions expire 90 days after you log in, no matter how often the integration uses them. You have two options:
+
+- **Remember password** (checkbox at sign-in, reauth and reconfigure): the password is stored in Home Assistant and the integration signs in again on its own when the session expires. This doesn't work for accounts that require a verification code (SMS / email / authenticator), because the code can't be entered unattended.
+- **Without it**: a Repairs warning appears about 10 days before expiry. Use **Reconfigure** on the integration to sign in again before your devices stop updating.
+
 > [!IMPORTANT]
 >
 > ## Fair Warning
