@@ -6,7 +6,11 @@
         "description": "Sign in with your Mobile Link account.",
         "data": {
           "username": "Email",
-          "password": "Password"
+          "password": "Password",
+          "remember_password": "Remember password"
+        },
+        "data_description": {
+          "remember_password": "Generac sessions expire about every 90 days. If enabled, the password is stored in Home Assistant so the integration can sign in again on its own. Not used for accounts that require a verification code."
         }
       },
       "reconfigure": {
@@ -15,14 +19,22 @@
         "data": {
           "username": "Email",
           "password": "Password",
-          "scan_interval": "Cloud polling interval (seconds)"
+          "scan_interval": "Cloud polling interval (seconds)",
+          "remember_password": "Remember password"
+        },
+        "data_description": {
+          "remember_password": "Generac sessions expire about every 90 days. If enabled, the password is stored in Home Assistant so the integration can sign in again on its own. Not used for accounts that require a verification code."
         }
       },
       "reauth_confirm": {
         "title": "Reauthenticate Generac MobileLink",
         "description": "The session for {username} has expired. Enter your password to refresh it.",
         "data": {
-          "password": "Password"
+          "password": "Password",
+          "remember_password": "Remember password"
+        },
+        "data_description": {
+          "remember_password": "Generac sessions expire about every 90 days. If enabled, the password is stored in Home Assistant so the integration can sign in again on its own. Not used for accounts that require a verification code."
         }
       },
       "mfa": {
@@ -67,6 +79,12 @@
           "weather": "Weather sensor enabled"
         }
       }
+    }
+  },
+  "issues": {
+    "refresh_token_expiring": {
+      "title": "Generac sign-in for {username} expires soon",
+      "description": "Generac sessions expire 90 days after sign-in. The session for {username} expires around {expires}, after which your Generac devices will stop updating.\n\nTo renew it, go to Settings → Devices & services → Generac MobileLink, open the ⋮ menu, choose **Reconfigure** and sign in again. Tick **Remember password** to have the integration renew the session automatically from now on."
     }
   }
 }
