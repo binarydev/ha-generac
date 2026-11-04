@@ -9,6 +9,8 @@ from custom_components.generac.auth import InvalidCredentialsError
 from custom_components.generac.const import CONF_DPOP_PEM
 from custom_components.generac.const import CONF_PASSWORD
 from custom_components.generac.const import CONF_REFRESH_TOKEN
+from custom_components.generac.const import CONF_REMEMBER_PASSWORD
+from custom_components.generac.const import CONF_TOKEN_ISSUED_AT
 from custom_components.generac.const import CONF_USERNAME
 from custom_components.generac.const import DOMAIN
 from homeassistant import config_entries
@@ -487,3 +489,61 @@ async def test_reconfigure_does_not_double_reload_when_loaded(
         await hass.async_block_till_done()
 
     mock_reload.assert_not_called()
+
+
+async def test_form_user_remember_password(hass: HomeAssistant) -> None:
+    """Opting in stores the password and stamps the token issue time."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=_mock_auth()),
+    ), patch("custom_components.generac.async_setup_entry", return_value=True):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "hunter2",
+                CONF_REMEMBER_PASSWORD: True,
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert result2["data"][CONF_PASSWORD] == "hunter2"
+    assert isinstance(result2["data"][CONF_TOKEN_ISSUED_AT], float)
+
+
+async def test_reauth_without_remember_drops_stored_password(
+    hass: HomeAssistant,
+) -> None:
+    """Unticking "remember password" on reauth removes the stored password."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="user@example.com",
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_PASSWORD: "old-pw",
+            CONF_REFRESH_TOKEN: "stale-rt",
+            CONF_DPOP_PEM: DPoPKey.generate().to_pem_str(),
+        },
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reauth", "entry_id": entry.entry_id},
+        data=entry.data,
+    )
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=_mock_auth(refresh_token="fresh-rt")),
+    ), patch("custom_components.generac.async_setup_entry", return_value=True):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_PASSWORD: "new-pw", CONF_REMEMBER_PASSWORD: False},
+        )
+        await hass.async_block_till_done()
+
+    assert result2["reason"] == "reauth_successful"
+    assert entry.data[CONF_REFRESH_TOKEN] == "fresh-rt"
+    assert CONF_PASSWORD not in entry.data

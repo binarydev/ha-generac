@@ -5,16 +5,20 @@ This module owns the iOS-app-equivalent auth flow:
 * Email + password universal-login against `auth.ecobee.com` (Auth0 tenant
   shared with the ecobee mobile apps).
 * PKCE + DPoP-bound authorization code exchange.
-* Refresh-token rotation off — the same RT is reusable indefinitely as
-  long as we keep proving possession of the original DPoP key.
+* Refresh-token rotation off — the same RT is reused for every refresh
+  as long as we keep proving possession of the original DPoP key.
 
 The DPoP private key is therefore part of the credential and must be
 persisted alongside the refresh token. We expose the key as a PEM string
 so it can live in the ConfigEntry's normal `data` dict.
 
 Refresh tokens for this client are NOT rotated by Auth0 (verified
-empirically with multiple successive refreshes). We never need to
-rewrite the ConfigEntry on a successful refresh.
+empirically with multiple successive refreshes), but they DO have an
+absolute lifetime of ~90 days from login (observed in production: the
+token endpoint returns `invalid_grant` 90 days after login even though
+it was refreshed every 2 h). Refreshing does not extend it; only a new
+login does. When the user opts in to storing their password, the RT
+expiry is handled by a silent re-login (see `enable_auto_relogin`).
 """
 from __future__ import annotations
 
@@ -906,6 +910,22 @@ class GeneracAuth:
         self._dpop_nonce: Optional[str] = None
         self._refresh_lock = asyncio.Lock()
         self._rt_persist_cb: Optional[Callable[[str], Awaitable[None]]] = None
+        self._password: Optional[str] = None
+        self._relogin_cb: Optional[Callable[["GeneracAuth"], Awaitable[None]]] = None
+
+    def enable_auto_relogin(
+        self,
+        password: str,
+        persist_cb: Callable[["GeneracAuth"], Awaitable[None]],
+    ) -> None:
+        """Re-run the full login when the refresh token is rejected.
+
+        The callback receives this instance after it has adopted the fresh
+        refresh token + DPoP key, and must persist both (`refresh_token`,
+        `pem_str`) — the old pair is dead.
+        """
+        self._password = password
+        self._relogin_cb = persist_cb
 
     def set_refresh_token_persist_callback(
         self, cb: Optional[Callable[[str], Awaitable[None]]]
@@ -991,9 +1011,54 @@ class GeneracAuth:
                 and time.time() < self._access_token_exp - self._ACCESS_TOKEN_LEEWAY
             ):
                 return self._access_token
-            await self._refresh()
+            try:
+                await self._refresh()
+            except InvalidGrantError:
+                if self._password is None or not self._email:
+                    raise
+                _LOGGER.warning(
+                    "Generac refresh token rejected; logging in again with "
+                    "the stored password"
+                )
+                await self._relogin()
             assert self._access_token is not None
             return self._access_token
+
+    async def _relogin(self) -> None:
+        """Mint a new RT + DPoP key via a full login and adopt them.
+
+        Raises InvalidGrantError when the login can't complete unattended
+        (wrong password, MFA) so the caller still lands in HA's reauth flow.
+        Transport / unexpected errors propagate unchanged so the coordinator
+        retries on the next poll instead of prompting.
+        """
+        assert self._password is not None and self._email
+        try:
+            fresh = await GeneracAuth.login(self._session, self._email, self._password)
+        except MfaRequiredError as ex:
+            await ex.flow.aclose()
+            raise InvalidGrantError(
+                "refresh token expired and re-login requires a one-time MFA code"
+            ) from ex
+        except (InvalidCredentialsError, MfaUnsupportedError) as ex:
+            raise InvalidGrantError(
+                f"refresh token expired and re-login failed: {ex}"
+            ) from ex
+
+        self._key = fresh._key
+        self._refresh_token = fresh._refresh_token
+        self._access_token = fresh._access_token
+        self._access_token_exp = fresh._access_token_exp
+        self._dpop_nonce = None
+        _LOGGER.info("Generac re-login OK; new refresh token issued")
+        if self._relogin_cb is not None:
+            try:
+                await self._relogin_cb(self)
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception(
+                    "Re-login succeeded but persisting the new credentials "
+                    "failed; the next HA restart will log in again"
+                )
 
     async def _refresh(self) -> None:
         body = {

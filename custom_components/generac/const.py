@@ -52,6 +52,19 @@ CONF_MFA_CODE = "mfa_code"
 CONF_REFRESH_TOKEN = "refresh_token"
 CONF_DPOP_PEM = "dpop_pem"
 CONF_SCAN_INTERVAL = "scan_interval"
+# Opt-in: keep the password in entry.data so an expired refresh token can be
+# replaced by a silent re-login instead of a manual reauth.
+CONF_REMEMBER_PASSWORD = "remember_password"
+# Unix timestamp of the login that minted the current refresh token.
+CONF_TOKEN_ISSUED_AT = "token_issued_at"
+
+# Generac's Auth0 tenant caps refresh tokens at an absolute lifetime of
+# ~90 days (observed: invalid_grant 90 days after login despite refreshing
+# every 2 h). Using the token does not extend it; only a fresh login does.
+REFRESH_TOKEN_LIFETIME_DAYS = 90
+# Raise a Repairs warning this many days before the expected expiry when
+# there is no stored password to re-login with.
+REFRESH_TOKEN_WARN_DAYS = 10
 
 # Options
 bool_opts = {}

@@ -22,6 +22,7 @@ is abandoned.
 """
 import asyncio
 import logging
+import time
 
 import aiohttp
 import voluptuous as vol
@@ -40,7 +41,9 @@ from .const import CONF_MFA_CODE
 from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
 from .const import CONF_REFRESH_TOKEN
+from .const import CONF_REMEMBER_PASSWORD
 from .const import CONF_SCAN_INTERVAL
+from .const import CONF_TOKEN_ISSUED_AT
 from .const import CONF_USERNAME
 from .const import DEFAULT_SCAN_INTERVAL
 from .const import DOMAIN
@@ -91,12 +94,24 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._pending_scan_interval: int | None = None
 
     @staticmethod
-    def _entry_data(auth: GeneracAuth, email: str) -> dict:
-        return {
+    def _entry_data(auth: GeneracAuth, email: str, password: str | None) -> dict:
+        data = {
             CONF_USERNAME: email,
             CONF_REFRESH_TOKEN: auth.refresh_token,
             CONF_DPOP_PEM: auth.pem_str,
+            CONF_TOKEN_ISSUED_AT: time.time(),
         }
+        if password:
+            data[CONF_PASSWORD] = password
+        return data
+
+    @staticmethod
+    def _merge_entry_data(entry: config_entries.ConfigEntry, entry_data: dict) -> dict:
+        """Overlay fresh credentials, dropping a stored password on opt-out."""
+        data = {**entry.data, **entry_data}
+        if CONF_PASSWORD not in entry_data:
+            data.pop(CONF_PASSWORD, None)
+        return data
 
     def _reload_if_setup_failed(self, entry: config_entries.ConfigEntry) -> None:
         """Force a reload when the entry isn't currently loaded.
@@ -118,7 +133,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             self.hass.config_entries.async_schedule_reload(entry.entry_id)
 
     async def _try_login(
-        self, email: str, password: str
+        self, email: str, password: str, remember: bool = False
     ) -> tuple[dict | None, str | None]:
         """Run the full login flow. Returns (entry_data, error_key).
 
@@ -150,7 +165,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.error("Unexpected error during login: %s", ex, exc_info=True)
             return None, "internal"
 
-        return self._entry_data(auth, email), None
+        return self._entry_data(auth, email, password if remember else None), None
 
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
@@ -159,9 +174,10 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             email = user_input[CONF_USERNAME].strip()
             password = user_input[CONF_PASSWORD]
+            remember = user_input.get(CONF_REMEMBER_PASSWORD, False)
 
             try:
-                entry_data, error = await self._try_login(email, password)
+                entry_data, error = await self._try_login(email, password, remember)
             except MfaRequiredError as ex:
                 self._login_flow = ex.flow
                 self._mfa_origin = "user"
@@ -178,6 +194,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_USERNAME): str,
                     vol.Required(CONF_PASSWORD): str,
+                    vol.Optional(CONF_REMEMBER_PASSWORD, default=False): bool,
                 }
             ),
             errors=errors,
@@ -199,9 +216,10 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             email = user_input[CONF_USERNAME].strip()
             password = user_input[CONF_PASSWORD]
             scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            remember = user_input.get(CONF_REMEMBER_PASSWORD, False)
 
             try:
-                entry_data, error = await self._try_login(email, password)
+                entry_data, error = await self._try_login(email, password, remember)
             except MfaRequiredError as ex:
                 self._login_flow = ex.flow
                 self._mfa_origin = "reconfigure"
@@ -229,6 +247,10 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_SCAN_INTERVAL, default=default_scan_interval
                     ): int,
+                    vol.Optional(
+                        CONF_REMEMBER_PASSWORD,
+                        default=bool(entry and entry.data.get(CONF_PASSWORD)),
+                    ): bool,
                 }
             ),
             errors=errors,
@@ -260,7 +282,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # unload, surfacing as "failed to unload".
         self.hass.config_entries.async_update_entry(
             entry,
-            data={**entry.data, **entry_data},
+            data=self._merge_entry_data(entry, entry_data),
             options=new_options,
         )
         self._reload_if_setup_failed(entry)
@@ -290,9 +312,10 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # integration. This prevents silently rebinding the entry
             # (and all its entities) to a different Generac account.
             email = default_email
+            remember = user_input.get(CONF_REMEMBER_PASSWORD, False)
 
             try:
-                entry_data, error = await self._try_login(email, password)
+                entry_data, error = await self._try_login(email, password, remember)
             except MfaRequiredError as ex:
                 self._login_flow = ex.flow
                 self._mfa_origin = "reauth"
@@ -308,6 +331,10 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_PASSWORD): str,
+                    vol.Optional(
+                        CONF_REMEMBER_PASSWORD,
+                        default=bool(entry.data.get(CONF_PASSWORD)),
+                    ): bool,
                 }
             ),
             description_placeholders={"username": default_email},
@@ -325,7 +352,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # reload here would race the listener-driven one in the loaded case and
         # surface as "failed to unload".
         self.hass.config_entries.async_update_entry(
-            entry, data={**entry.data, **entry_data}
+            entry, data=self._merge_entry_data(entry, entry_data)
         )
         self._reload_if_setup_failed(entry)
         return self.async_abort(reason="reauth_successful")
@@ -371,7 +398,10 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 await self._discard_login_flow()
                 return self.async_abort(reason="mfa_failed")
             else:
-                entry_data = self._entry_data(auth, self._pending_email)
+                # No password is stored for MFA accounts: an unattended
+                # re-login would stall on the same challenge. They get the
+                # expiry Repairs warning instead.
+                entry_data = self._entry_data(auth, self._pending_email, None)
                 self._login_flow = None
                 return await self._finish_origin(entry_data)
 

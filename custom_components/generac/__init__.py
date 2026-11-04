@@ -5,6 +5,7 @@ For more details about this integration, please refer to
 https://github.com/binarydev/ha-generac
 """
 import logging
+import time
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -16,12 +17,15 @@ from .api import InvalidCredentialsException
 from .auth import GeneracAuth
 from .auth import InvalidGrantError
 from .const import CONF_DPOP_PEM
+from .const import CONF_PASSWORD
 from .const import CONF_REFRESH_TOKEN
+from .const import CONF_TOKEN_ISSUED_AT
 from .const import CONF_USERNAME
 from .const import DOMAIN
 from .const import PLATFORMS
 from .const import STARTUP_MESSAGE
 from .coordinator import GeneracDataUpdateCoordinator
+from .issues import async_delete_token_expiry_issue
 from .utils import async_client_session
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -55,6 +59,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         )
 
     auth.set_refresh_token_persist_callback(_persist_rt)
+
+    password = entry.data.get(CONF_PASSWORD)
+    if password:
+
+        async def _persist_relogin(fresh: GeneracAuth) -> None:
+            hass.config_entries.async_update_entry(
+                entry,
+                data={
+                    **entry.data,
+                    CONF_REFRESH_TOKEN: fresh.refresh_token,
+                    CONF_DPOP_PEM: fresh.pem_str,
+                    CONF_TOKEN_ISSUED_AT: time.time(),
+                },
+            )
+
+        auth.enable_auto_relogin(password, _persist_relogin)
 
     client = GeneracApiClient(session, auth)
     coordinator = GeneracDataUpdateCoordinator(hass, client=client, config_entry=entry)
@@ -94,3 +114,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Clean up the expiry Repairs issue when the entry is deleted."""
+    async_delete_token_expiry_issue(hass, entry)

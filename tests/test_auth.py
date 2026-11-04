@@ -14,6 +14,7 @@ from custom_components.generac.auth import GeneracAuth
 from custom_components.generac.auth import IDENTIFIER_URL
 from custom_components.generac.auth import InvalidCredentialsError
 from custom_components.generac.auth import InvalidGrantError
+from custom_components.generac.auth import MfaRequiredError
 from custom_components.generac.auth import PASSWORD_URL
 
 
@@ -338,3 +339,81 @@ async def test_identifier_and_password_steps_strip_email_whitespace():
     assert "username=user%40example.com" in pw_body
     # Password whitespace is preserved verbatim
     assert "password=+pass+" in pw_body
+
+
+# ---------------------------------------------------------------------------
+# Silent re-login when the ~90-day refresh token expires
+# ---------------------------------------------------------------------------
+
+
+def _fresh_login_auth() -> GeneracAuth:
+    fresh = _make_auth(refresh_token="rt-FRESH")
+    fresh._access_token = "AT-FRESH"
+    fresh._access_token_exp = 9e12
+    return fresh
+
+
+@pytest.mark.asyncio
+async def test_expired_rt_relogs_in_with_stored_password(monkeypatch):
+    """invalid_grant + stored password -> full login, adopt + persist new creds."""
+    auth = _make_auth(refresh_token="rt-EXPIRED")
+    auth._refresh = AsyncMock(side_effect=InvalidGrantError("expired"))
+    fresh = _fresh_login_auth()
+    login = AsyncMock(return_value=fresh)
+    monkeypatch.setattr(GeneracAuth, "login", login)
+    persist = AsyncMock()
+    auth.enable_auto_relogin("hunter2", persist)
+
+    assert await auth.ensure_access_token() == "AT-FRESH"
+
+    login.assert_awaited_once_with(auth._session, "user@example.com", "hunter2")
+    assert auth.refresh_token == "rt-FRESH"
+    assert auth.pem_str == fresh.pem_str
+    persist.assert_awaited_once_with(auth)
+
+
+@pytest.mark.asyncio
+async def test_expired_rt_without_password_still_raises(monkeypatch):
+    """No stored password -> InvalidGrantError propagates (manual reauth)."""
+    auth = _make_auth()
+    auth._refresh = AsyncMock(side_effect=InvalidGrantError("expired"))
+    login = AsyncMock()
+    monkeypatch.setattr(GeneracAuth, "login", login)
+
+    with pytest.raises(InvalidGrantError):
+        await auth.ensure_access_token()
+    login.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_relogin_needing_mfa_falls_back_to_reauth(monkeypatch):
+    """MFA can't be answered unattended: close the paused flow, raise for reauth."""
+    auth = _make_auth()
+    auth._refresh = AsyncMock(side_effect=InvalidGrantError("expired"))
+    paused = MagicMock()
+    paused.aclose = AsyncMock()
+    monkeypatch.setattr(
+        GeneracAuth,
+        "login",
+        AsyncMock(side_effect=MfaRequiredError(paused, "sms", "url", "state")),
+    )
+    persist = AsyncMock()
+    auth.enable_auto_relogin("hunter2", persist)
+
+    with pytest.raises(InvalidGrantError):
+        await auth.ensure_access_token()
+    paused.aclose.assert_awaited_once()
+    persist.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_relogin_with_changed_password_falls_back_to_reauth(monkeypatch):
+    auth = _make_auth()
+    auth._refresh = AsyncMock(side_effect=InvalidGrantError("expired"))
+    monkeypatch.setattr(
+        GeneracAuth, "login", AsyncMock(side_effect=InvalidCredentialsError("bad"))
+    )
+    auth.enable_auto_relogin("old-password", AsyncMock())
+
+    with pytest.raises(InvalidGrantError):
+        await auth.ensure_access_token()
