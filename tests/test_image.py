@@ -27,7 +27,7 @@ async def test_image_sensor(hass):
     item = get_mock_item("http://example.com/image.png")
     sensor = HeroImageSensor(coordinator, entry, "12345", item, hass)
     assert sensor.image_url == "http://example.com/image.png"
-    assert sensor.name == "generac_12345_hero_image"
+    assert sensor.name == "Hero Image"
     assert sensor.available is True
 
     # Test with no image URL

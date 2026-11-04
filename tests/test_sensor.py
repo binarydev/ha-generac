@@ -1,6 +1,7 @@
 """Test the Generac sensor platform."""
 from unittest.mock import MagicMock
 
+import pytest
 from custom_components.generac.const import DEVICE_TYPE_GENERATOR
 from custom_components.generac.const import DEVICE_TYPE_PROPANE_MONITOR
 from custom_components.generac.models import Apparatus
@@ -16,8 +17,10 @@ from custom_components.generac.sensor import ConnectionTimeSensor
 from custom_components.generac.sensor import DealerEmailSensor
 from custom_components.generac.sensor import DealerNameSensor
 from custom_components.generac.sensor import DealerPhoneSensor
+from custom_components.generac.sensor import DeviceBatteryLevelSensor
 from custom_components.generac.sensor import DeviceSsidSensor
 from custom_components.generac.sensor import DeviceTypeSensor
+from custom_components.generac.sensor import ExerciseMinutesSensor
 from custom_components.generac.sensor import FuelLevelSensor
 from custom_components.generac.sensor import FuelTypeSensor
 from custom_components.generac.sensor import LastReadingDateSensor
@@ -28,6 +31,7 @@ from custom_components.generac.sensor import OutdoorTemperatureSensor
 from custom_components.generac.sensor import PanelIDSensor
 from custom_components.generac.sensor import ProtectionTimeSensor
 from custom_components.generac.sensor import RunTimeSensor
+from custom_components.generac.sensor import sensors
 from custom_components.generac.sensor import SerialNumberSensor
 from custom_components.generac.sensor import SignalStrengthSensor
 from custom_components.generac.sensor import StatusLabelSensor
@@ -127,7 +131,7 @@ async def test_status_sensor(hass):
     item = get_mock_item(DEVICE_TYPE_GENERATOR, 1)
     sensor = StatusSensor(coordinator, entry, "12345", item)
     assert sensor.native_value == "Ready"
-    assert sensor.name == "generac_12345_status"
+    assert sensor.name == "Status"
     assert sensor.device_class == "enum"
     assert sensor.icon == "mdi:power"
 
@@ -222,7 +226,7 @@ async def test_generator_sensors(hass):
     assert sensor.native_value == "P12345"
 
     sensor = SignalStrengthSensor(coordinator, entry, "12345", item)
-    assert sensor.native_value == "100%"
+    assert sensor.native_value == 100.0
 
     sensor = OutdoorTemperatureSensor(coordinator, entry, "12345", item)
     assert sensor.native_value == 72.0
@@ -285,3 +289,136 @@ async def test_safe_float_handles_none_and_invalid(hass):
     assert RunTimeSensor(coordinator, entry, "12345", item).native_value is None
     assert ProtectionTimeSensor(coordinator, entry, "12345", item).native_value is None
     assert BatteryVoltageSensor(coordinator, entry, "12345", item).native_value is None
+
+
+def _with_apparatus_value(item: Item, **fields) -> Item:
+    item.apparatus.properties = [
+        Apparatus.Property(name="x", value=[], type=1),
+        Apparatus.Property(name="y", value="text", type=2),
+        Apparatus.Property(
+            name="z",
+            value=Apparatus.Property.Value(
+                type=3,
+                status=None,
+                isLegacy=None,
+                isRunning=None,
+                deviceId=None,
+                deviceType=None,
+                signalStrength=fields.get("signalStrength"),
+                batteryLevel=fields.get("batteryLevel"),
+            ),
+            type=3,
+        ),
+    ]
+    return item
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("75%", 75.0), (" 75 % ", 75.0), ("75", 75.0), (75, 75.0), ("N/A", None)],
+)
+async def test_percentage_sensors_are_numeric(hass, raw, expected):
+    """Signal strength / device battery parse "NN%" strings into numbers."""
+    item = _with_apparatus_value(
+        get_mock_item(DEVICE_TYPE_GENERATOR, 1), signalStrength=raw, batteryLevel=raw
+    )
+    signal = SignalStrengthSensor(MagicMock(), MagicMock(), "12345", item)
+    battery = DeviceBatteryLevelSensor(MagicMock(), MagicMock(), "12345", item)
+    assert signal.native_value == expected
+    assert battery.native_value == expected
+    assert signal.native_unit_of_measurement == "%"
+    assert signal.state_class == "measurement"
+    assert battery.device_class == "battery"
+
+
+@pytest.mark.parametrize(
+    "properties",
+    [
+        None,
+        [],
+        [Apparatus.Property(name="x", value=None, type=3)],
+        [Apparatus.Property(name="x", value=["unexpected"], type=3)],
+        [Apparatus.Property(name="x", value=42, type=3)],
+    ],
+)
+async def test_percentage_sensors_tolerate_missing_or_malformed(hass, properties):
+    """Missing or unexpectedly typed property payloads report unknown."""
+    item = get_mock_item(DEVICE_TYPE_GENERATOR, 1)
+    item.apparatus.properties = properties
+    assert (
+        SignalStrengthSensor(MagicMock(), MagicMock(), "1", item).native_value is None
+    )
+    assert (
+        DeviceBatteryLevelSensor(MagicMock(), MagicMock(), "1", item).native_value
+        is None
+    )
+
+
+async def test_exercise_duration_sensor(hass):
+    """Detail property 95 is exposed as an exercise duration in minutes."""
+    item = get_mock_item(DEVICE_TYPE_GENERATOR, 1)
+    item.apparatusDetail.properties = [MagicMock(type=95, value="12")]
+    sensor = ExerciseMinutesSensor(MagicMock(), MagicMock(), "12345", item)
+    assert sensor.native_value == 12.0
+    assert sensor.native_unit_of_measurement == "min"
+    assert sensor.name == "Exercise Duration"
+
+    item.apparatusDetail.properties = [MagicMock(type=95, value={"bad": 1})]
+    assert sensor.native_value is None
+
+
+async def test_fuel_level_percentage_is_numeric(hass):
+    """Propane fuel level strings like "45%" no longer break the sensor state."""
+    item = get_mock_item(DEVICE_TYPE_PROPANE_MONITOR, 1, fuel_level="45%")
+    assert FuelLevelSensor(MagicMock(), MagicMock(), "1", item).native_value == 45.0
+
+
+def test_sensor_selection_generator():
+    """Generators always keep signal strength; optional sensors follow the data."""
+    item = get_mock_item(DEVICE_TYPE_GENERATOR, 1)
+    item.apparatus.properties = None
+    selected = sensors(item)
+    assert SignalStrengthSensor in selected
+    assert DeviceBatteryLevelSensor not in selected
+    assert ExerciseMinutesSensor not in selected
+
+    item = _with_apparatus_value(item, signalStrength="70%", batteryLevel="90")
+    item.apparatusDetail.properties.append(MagicMock(type=95, value=15))
+    selected = sensors(item)
+    assert selected.count(SignalStrengthSensor) == 1
+    assert DeviceBatteryLevelSensor in selected
+    assert ExerciseMinutesSensor in selected
+
+
+def test_sensor_selection_propane_monitor():
+    """Propane monitors gain signal/battery sensors only when reported."""
+    item = get_mock_item(DEVICE_TYPE_PROPANE_MONITOR, 1)
+    item.apparatusDetail.properties = None
+    assert SignalStrengthSensor not in sensors(item)
+    assert DeviceBatteryLevelSensor not in sensors(item)
+
+    item = _with_apparatus_value(item, signalStrength="60", batteryLevel="80%")
+    selected = sensors(item)
+    assert SignalStrengthSensor in selected
+    assert DeviceBatteryLevelSensor in selected
+    assert ExerciseMinutesSensor not in selected
+    assert BatteryLevelSensor in selected
+
+
+def test_friendly_names_and_stable_unique_ids():
+    """Labels are readable; unique_ids keep the historical technical suffix."""
+    entry = MagicMock()
+    entry.entry_id = "entry"
+    item = get_mock_item(DEVICE_TYPE_PROPANE_MONITOR, 1)
+    cases = {
+        LastReadingDateSensor: ("Last Reading", "last_reading"),
+        DeviceSsidSensor: ("Device SSID", "device_ssid"),
+        PanelIDSensor: ("Panel ID", "panel_id"),
+        RunTimeSensor: ("Run Time", "run_time"),
+        DeviceBatteryLevelSensor: ("Device Battery Level", "device_battery_level"),
+    }
+    for cls, (label, suffix) in cases.items():
+        sensor = cls(MagicMock(), entry, "9", item)
+        assert sensor.has_entity_name is True
+        assert sensor.name == label
+        assert sensor.unique_id == f"entry_9_generac_9_{suffix}"

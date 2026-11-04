@@ -76,3 +76,27 @@ async def test_entity_missing_device_falls_back_to_empty_item(hass):
     assert entity.item is _EMPTY_ITEM
     assert entity.available is False
     assert entity.async_write_ha_state.called
+
+
+async def test_entity_unavailable_after_failed_poll(hass):
+    """A failed coordinator refresh marks entities unavailable."""
+    coordinator = MagicMock()
+    coordinator.is_online = True
+    coordinator.last_update_success = False
+    entry = MagicMock()
+    entity = GeneracEntity(coordinator, entry, "12345", get_mock_item())
+    assert entity.available is False
+
+
+async def test_entity_update_tolerates_missing_coordinator_data(hass):
+    """coordinator.data of None leaves the entity alive but unavailable."""
+    from custom_components.generac.entity import _EMPTY_ITEM
+
+    coordinator = MagicMock()
+    coordinator.data = None
+    entity = GeneracEntity(coordinator, MagicMock(), "12345", get_mock_item())
+    entity.hass = hass
+    entity.async_write_ha_state = MagicMock()
+    entity._handle_coordinator_update()
+    assert entity.item is _EMPTY_ITEM
+    assert entity.available is False

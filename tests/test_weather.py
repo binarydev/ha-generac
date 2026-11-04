@@ -41,7 +41,7 @@ async def test_weather_sensor(hass):
     assert sensor.condition == "sunny"
     assert sensor.native_temperature == 72.0
     assert sensor.native_temperature_unit == "°F"
-    assert sensor.name == "generac_12345_weather"
+    assert sensor.name == "Weather"
 
     # Test cloudy condition
     item = get_mock_item(7, 65.0, "C")
