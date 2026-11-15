@@ -7,7 +7,6 @@ from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DEFAULT_NAME
 from .const import DOMAIN
 from .coordinator import GeneracDataUpdateCoordinator
 from .entity import GeneracEntity
@@ -37,10 +36,7 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
 class WeatherSensor(GeneracEntity, WeatherEntity):
     """generac Weather class."""
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return f"{DEFAULT_NAME}_{self.device_id}_weather"
+    entity_key = "weather"
 
     @property
     def condition(self):
