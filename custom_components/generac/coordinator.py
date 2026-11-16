@@ -31,6 +31,9 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         self.api = client
         self._config_entry = config_entry
         self.is_online = False
+        self.reload_signature: tuple[dict, dict] | None = None
+        self.persisted_credentials: tuple[str | None, str | None] | None = None
+        self.pending_credential_updates: int = 0
         scan_interval = timedelta(
             seconds=config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         )

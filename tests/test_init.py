@@ -6,10 +6,14 @@ from custom_components.generac import async_reload_entry
 from custom_components.generac import async_setup_entry
 from custom_components.generac import async_unload_entry
 from custom_components.generac.auth import DPoPKey
+from custom_components.generac.auth import GeneracAuth
 from custom_components.generac.const import CONF_DPOP_PEM
+from custom_components.generac.const import CONF_PASSWORD
 from custom_components.generac.const import CONF_REFRESH_TOKEN
+from custom_components.generac.const import CONF_TOKEN_ISSUED_AT
 from custom_components.generac.const import CONF_USERNAME
 from custom_components.generac.const import DOMAIN
+from custom_components.generac.coordinator import GeneracDataUpdateCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -180,3 +184,134 @@ async def test_setup_entry_invalid_grant_raises_auth_failed(hass):
         boom,
     ), pytest.raises(ConfigEntryAuthFailed):
         await async_setup_entry(hass, config_entry)
+
+
+async def test_token_rotation_persists_without_reloading_entry(
+    hass: HomeAssistant, bypass_get_data
+):
+    """Rotating the refresh token persists it without reloading the entry."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=_make_mock_config(), entry_id="test"
+    )
+    config_entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    session = coordinator.api._session
+
+    with patch.object(
+        hass.config_entries,
+        "async_reload",
+        wraps=hass.config_entries.async_reload,
+    ) as mock_reload:
+        await coordinator.api._auth._rt_persist_cb("rotated-rt")
+        await hass.async_block_till_done()
+
+    assert config_entry.data[CONF_REFRESH_TOKEN] == "rotated-rt"
+    mock_reload.assert_not_called()
+    assert hass.data[DOMAIN][config_entry.entry_id] is coordinator
+    assert not session.closed
+
+
+async def test_auto_relogin_persists_without_reloading_entry(
+    hass: HomeAssistant, bypass_get_data
+):
+    """Silent auto-relogin persists new credentials without reloading."""
+    data = {**_make_mock_config(), CONF_PASSWORD: "secret"}
+    config_entry = MockConfigEntry(domain=DOMAIN, data=data, entry_id="test")
+    config_entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    session = coordinator.api._session
+    fresh_auth = GeneracAuth(
+        session, "relogin-rt", DPoPKey.generate(), email="user@example.com"
+    )
+
+    with patch.object(
+        hass.config_entries,
+        "async_reload",
+        wraps=hass.config_entries.async_reload,
+    ) as mock_reload:
+        await coordinator.api._auth._relogin_cb(fresh_auth)
+        await hass.async_block_till_done()
+
+    assert config_entry.data[CONF_REFRESH_TOKEN] == "relogin-rt"
+    assert config_entry.data[CONF_DPOP_PEM] == fresh_auth.pem_str
+    assert isinstance(config_entry.data[CONF_TOKEN_ISSUED_AT], float)
+    mock_reload.assert_not_called()
+    assert hass.data[DOMAIN][config_entry.entry_id] is coordinator
+    assert not session.closed
+
+
+async def test_options_update_still_reloads_after_token_rotation(
+    hass: HomeAssistant, bypass_get_data
+):
+    """Option updates still trigger a reload after background token persistence."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=_make_mock_config(), entry_id="test"
+    )
+    config_entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    with patch.object(
+        hass.config_entries,
+        "async_reload",
+        wraps=hass.config_entries.async_reload,
+    ) as mock_reload:
+        await coordinator.api._auth._rt_persist_cb("rotated-rt")
+        await hass.async_block_till_done()
+        mock_reload.assert_not_called()
+
+        hass.config_entries.async_update_entry(
+            config_entry, options={"scan_interval": 300}
+        )
+        await hass.async_block_till_done()
+
+    mock_reload.assert_called_once_with(config_entry.entry_id)
+
+
+async def test_first_refresh_token_rotation_does_not_suppress_later_reload(
+    hass: HomeAssistant,
+):
+    """Token rotation during initial setup must not suppress later reloads."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=_make_mock_config(), entry_id="test"
+    )
+    config_entry.add_to_hass(hass)
+
+    async def rotate_on_first_refresh(self):
+        await self.api._auth._rt_persist_cb("rotated-during-setup")
+        self.last_update_success = True
+
+    with patch.object(
+        GeneracDataUpdateCoordinator,
+        "async_config_entry_first_refresh",
+        rotate_on_first_refresh,
+    ):
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    assert coordinator.pending_credential_updates == 0
+    assert config_entry.data[CONF_REFRESH_TOKEN] == "rotated-during-setup"
+
+    with patch.object(
+        hass.config_entries,
+        "async_reload",
+        wraps=hass.config_entries.async_reload,
+    ) as mock_reload:
+        hass.config_entries.async_update_entry(
+            config_entry,
+            data={**config_entry.data, CONF_REFRESH_TOKEN: "external-rt"},
+        )
+        await hass.async_block_till_done()
+
+    mock_reload.assert_called_once_with(config_entry.entry_id)

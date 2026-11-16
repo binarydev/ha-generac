@@ -30,6 +30,17 @@ from .utils import async_client_session
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
+# Keys rewritten in-place during background token rotation / auto-relogin.
+_TOKEN_KEYS = frozenset({CONF_REFRESH_TOKEN, CONF_DPOP_PEM, CONF_TOKEN_ISSUED_AT})
+
+
+def _reload_signature(entry: ConfigEntry) -> tuple[dict, dict]:
+    """Snapshot of entry options and non-token data that require a reload on change."""
+    return (
+        dict(entry.options),
+        {k: v for k, v in entry.data.items() if k not in _TOKEN_KEYS},
+    )
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up this integration using UI."""
@@ -53,10 +64,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.error("Failed to load stored credentials: %s", ex)
         raise ConfigEntryAuthFailed("Stored credentials are unreadable") from ex
 
+    client = GeneracApiClient(session, auth)
+    coordinator = GeneracDataUpdateCoordinator(hass, client=client, config_entry=entry)
+
+    def _persist_credentials(new_data: dict) -> None:
+        if coordinator.reload_signature is not None:
+            coordinator.persisted_credentials = (
+                new_data.get(CONF_REFRESH_TOKEN),
+                new_data.get(CONF_DPOP_PEM),
+            )
+            coordinator.pending_credential_updates += 1
+            if not hass.config_entries.async_update_entry(entry, data=new_data):
+                coordinator.pending_credential_updates -= 1
+        else:
+            hass.config_entries.async_update_entry(entry, data=new_data)
+
     async def _persist_rt(new_rt: str) -> None:
-        hass.config_entries.async_update_entry(
-            entry, data={**entry.data, CONF_REFRESH_TOKEN: new_rt}
-        )
+        _persist_credentials({**entry.data, CONF_REFRESH_TOKEN: new_rt})
 
     auth.set_refresh_token_persist_callback(_persist_rt)
 
@@ -64,20 +88,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     if password:
 
         async def _persist_relogin(fresh: GeneracAuth) -> None:
-            hass.config_entries.async_update_entry(
-                entry,
-                data={
+            _persist_credentials(
+                {
                     **entry.data,
                     CONF_REFRESH_TOKEN: fresh.refresh_token,
                     CONF_DPOP_PEM: fresh.pem_str,
                     CONF_TOKEN_ISSUED_AT: time.time(),
-                },
+                }
             )
 
         auth.enable_auto_relogin(password, _persist_relogin)
-
-    client = GeneracApiClient(session, auth)
-    coordinator = GeneracDataUpdateCoordinator(hass, client=client, config_entry=entry)
     try:
         await coordinator.async_config_entry_first_refresh()
     except InvalidCredentialsException as ex:
@@ -97,6 +117,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    coordinator.reload_signature = _reload_signature(entry)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
 
@@ -112,7 +133,22 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload config entry."""
+    """Reload config entry, skipping in-place background credential updates."""
+    coordinator: GeneracDataUpdateCoordinator | None = hass.data.get(DOMAIN, {}).get(
+        entry.entry_id
+    )
+    if (
+        coordinator is not None
+        and coordinator.pending_credential_updates > 0
+        and coordinator.reload_signature == _reload_signature(entry)
+        and coordinator.persisted_credentials
+        == (entry.data.get(CONF_REFRESH_TOKEN), entry.data.get(CONF_DPOP_PEM))
+    ):
+        coordinator.pending_credential_updates -= 1
+        _LOGGER.debug("Config entry updated (credentials only); skipping reload")
+        return
+    if coordinator is not None:
+        coordinator.pending_credential_updates = 0
     await hass.config_entries.async_reload(entry.entry_id)
 
 

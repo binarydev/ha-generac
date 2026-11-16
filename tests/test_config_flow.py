@@ -11,11 +11,13 @@ from custom_components.generac.const import CONF_DPOP_PEM
 from custom_components.generac.const import CONF_PASSWORD
 from custom_components.generac.const import CONF_REFRESH_TOKEN
 from custom_components.generac.const import CONF_REMEMBER_PASSWORD
+from custom_components.generac.const import CONF_SCAN_INTERVAL
 from custom_components.generac.const import CONF_TOKEN_ISSUED_AT
 from custom_components.generac.const import CONF_USERNAME
 from custom_components.generac.const import DOMAIN
 from homeassistant import config_entries
 from homeassistant import setup
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -636,3 +638,100 @@ async def test_abandoned_mfa_flow_closes_login_session(hass: HomeAssistant) -> N
     await hass.async_block_till_done()
 
     login_flow.aclose.assert_awaited_once()
+
+
+async def test_reauth_reloads_loaded_entry_with_only_token_changes(
+    hass: HomeAssistant, bypass_get_data
+) -> None:
+    """Reauth on a loaded entry reloads it even when only token keys change."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="user@example.com",
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_REFRESH_TOKEN: "stale-rt",
+            CONF_DPOP_PEM: DPoPKey.generate().to_pem_str(),
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    old_coordinator = hass.data[DOMAIN][entry.entry_id]
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reauth", "entry_id": entry.entry_id},
+        data=entry.data,
+    )
+    assert result["step_id"] == "reauth_confirm"
+
+    new_auth = _mock_auth(refresh_token="fresh-rt")
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=new_auth),
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_PASSWORD: "new-pw"},
+        )
+        await hass.async_block_till_done()
+
+    assert result2["type"] == "abort"
+    assert result2["reason"] == "reauth_successful"
+    new_coordinator = hass.data[DOMAIN][entry.entry_id]
+    assert new_coordinator is not old_coordinator
+    assert new_coordinator.api._auth.refresh_token == "fresh-rt"
+    assert new_coordinator.api._auth.pem_str == new_auth.pem_str
+
+
+async def test_reconfigure_unchanged_options_reloads_loaded_entry(
+    hass: HomeAssistant, bypass_get_data
+) -> None:
+    """Reconfigure with unchanged options still reloads a loaded entry."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="user@example.com",
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_REFRESH_TOKEN: "old-rt",
+            CONF_DPOP_PEM: DPoPKey.generate().to_pem_str(),
+        },
+        options={CONF_SCAN_INTERVAL: 900},
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    old_coordinator = hass.data[DOMAIN][entry.entry_id]
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": entry.entry_id},
+    )
+    assert result["step_id"] == "reconfigure"
+
+    new_auth = _mock_auth(refresh_token="new-rt")
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=new_auth),
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "new-pw",
+                CONF_SCAN_INTERVAL: 900,
+                CONF_REMEMBER_PASSWORD: False,
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert result2["type"] == "abort"
+    assert result2["reason"] == "reconfigure_successful"
+    new_coordinator = hass.data[DOMAIN][entry.entry_id]
+    assert new_coordinator is not old_coordinator
+    assert new_coordinator.api._auth.refresh_token == "new-rt"
+    assert new_coordinator.api._auth.pem_str == new_auth.pem_str
