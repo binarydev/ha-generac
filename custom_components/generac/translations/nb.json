@@ -38,12 +38,12 @@
       "mfa_invalid": "Koden var feil eller har utløpt. Skriv inn den nyeste koden, eller avbryt og start på nytt for å få en ny.",
       "mfa_unsupported": "Kontoen din bruker en tofaktor-metode som denne integrasjonen ikke kan fullføre automatisk (for eksempel et push-varsel eller en sikkerhetsnøkkel). Godkjenn påloggingen i MobileLink-appen, eller bytt Generac/ecobee-kontoen din til SMS, e-post eller koder fra autentiseringsapp, og prøv igjen.",
       "auth0_unreachable": "Kunne ikke nå auth.ecobee.com. Sjekk HA-vertens utgående nettverk/DNS.",
-      "auth0_step_authorize": "Auth0 /authorize-trinn mislyktes — universal-login-inngangspunktet godtok ikke forespørselen vår. Sjekk Innstillinger → System → Logger for 'Generac auth: step=authorize'-linjen, og rapporter deretter på github.com/pjordanandrsn/ha-generac.",
+      "auth0_step_authorize": "Auth0 /authorize-trinn mislyktes — universal-login-inngangspunktet godtok ikke forespørselen vår. Sjekk Innstillinger → System → Logger for 'Generac auth: step=authorize'-linjen, og rapporter deretter på github.com/binarydev/ha-generac.",
       "auth0_step_login_form": "Auth0 innloggingsskjema (identifikator eller passord) returnerte et uventet svar. Skjemafeltene eller flyten kan ha endret seg. Sjekk HA-loggen for 'POST .../login/'-linjer.",
       "auth0_step_resume": "Auth0 /authorize/resume-trinn mislyktes — påloggingen så ut til å være vellykket, men gjenoppta-omdirigeringen var feilformatert. Sjekk HA-loggen for 'Generac auth: step=resume'-linjen.",
-      "auth0_redirect": "Auth0 returnerte en uventet omdirigering. Sjekk HA-loggen for 'Generac auth:'-linjer og rapporter på github.com/pjordanandrsn/ha-generac.",
-      "code_exchange": "Auth0 godtok innlogging, men avviste tokenutvekslingen (DPoP/PKCE). Sjekk HA-loggen og rapporter på github.com/pjordanandrsn/ha-generac.",
-      "internal": "Uventet feil. Sjekk Innstillinger → System → Logger for full sporing og rapporter på github.com/pjordanandrsn/ha-generac."
+      "auth0_redirect": "Auth0 returnerte en uventet omdirigering. Sjekk HA-loggen for 'Generac auth:'-linjer og rapporter på github.com/binarydev/ha-generac.",
+      "code_exchange": "Auth0 godtok innlogging, men avviste tokenutvekslingen (DPoP/PKCE). Sjekk HA-loggen og rapporter på github.com/binarydev/ha-generac.",
+      "internal": "Uventet feil. Sjekk Innstillinger → System → Logger for full sporing og rapporter på github.com/binarydev/ha-generac."
     },
     "abort": {
       "single_instance_allowed": "Denne integrasjonen kan kun konfigureres en gang.",
