@@ -38,12 +38,12 @@
       "mfa_invalid": "Esse código estava incorreto ou expirou. Introduza o código mais recente ou cancele e comece de novo para obter um novo.",
       "mfa_unsupported": "A sua conta utiliza um método de dois fatores que esta integração não consegue concluir automaticamente (como uma notificação push ou chave de segurança). Aprove o início de sessão na aplicação MobileLink ou mude a sua conta Generac/ecobee para SMS, email ou códigos de aplicação de autenticação e tente novamente.",
       "auth0_unreachable": "Não foi possível contactar auth.ecobee.com. Verifique a rede de saída/DNS do anfitrião HA.",
-      "auth0_step_authorize": "O passo Auth0 /authorize falhou — o ponto de entrada universal-login não aceitou o nosso pedido. Verifique Definições → Sistema → Registos para a linha 'Generac auth: step=authorize', depois reporte em github.com/pjordanandrsn/ha-generac.",
+      "auth0_step_authorize": "O passo Auth0 /authorize falhou — o ponto de entrada universal-login não aceitou o nosso pedido. Verifique Definições → Sistema → Registos para a linha 'Generac auth: step=authorize', depois reporte em github.com/binarydev/ha-generac.",
       "auth0_step_login_form": "O formulário de início de sessão Auth0 (identificador ou palavra-passe) devolveu uma resposta inesperada. Os campos do formulário ou o fluxo podem ter mudado. Verifique o registo do HA para as linhas 'POST .../login/'.",
       "auth0_step_resume": "O passo Auth0 /authorize/resume falhou — o início de sessão pareceu ter sucesso, mas o redirecionamento de retoma estava mal formatado. Verifique o registo do HA para a linha 'Generac auth: step=resume'.",
-      "auth0_redirect": "O Auth0 devolveu um redirecionamento inesperado. Verifique o registo do HA para as linhas 'Generac auth:' e reporte em github.com/pjordanandrsn/ha-generac.",
-      "code_exchange": "O Auth0 aceitou o início de sessão, mas rejeitou a troca de token (DPoP/PKCE). Verifique o registo do HA e reporte em github.com/pjordanandrsn/ha-generac.",
-      "internal": "Erro inesperado. Verifique Definições → Sistema → Registos para o traceback completo e reporte em github.com/pjordanandrsn/ha-generac."
+      "auth0_redirect": "O Auth0 devolveu um redirecionamento inesperado. Verifique o registo do HA para as linhas 'Generac auth:' e reporte em github.com/binarydev/ha-generac.",
+      "code_exchange": "O Auth0 aceitou o início de sessão, mas rejeitou a troca de token (DPoP/PKCE). Verifique o registo do HA e reporte em github.com/binarydev/ha-generac.",
+      "internal": "Erro inesperado. Verifique Definições → Sistema → Registos para o traceback completo e reporte em github.com/binarydev/ha-generac."
     },
     "abort": {
       "single_instance_allowed": "Apenas é permitida uma única instância.",
