@@ -38,12 +38,12 @@
       "mfa_invalid": "Ce code est incorrect ou a expiré. Saisissez le code le plus récent, ou annulez et recommencez pour en obtenir un nouveau.",
       "mfa_unsupported": "Votre compte utilise une méthode à deux facteurs que cette intégration ne peut pas effectuer automatiquement (comme une notification push ou une clé de sécurité). Approuvez la connexion dans l'application MobileLink, ou passez votre compte Generac/ecobee aux codes par SMS, e-mail ou application d'authentification, puis réessayez.",
       "auth0_unreachable": "Impossible d'atteindre auth.ecobee.com. Vérifiez le réseau sortant/DNS de l'hôte HA.",
-      "auth0_step_authorize": "L'étape Auth0 /authorize a échoué — le point d'entrée universal-login n'a pas accepté notre demande. Vérifiez Paramètres → Système → Journaux pour la ligne 'Generac auth: step=authorize', puis signalez-le sur github.com/pjordanandrsn/ha-generac.",
+      "auth0_step_authorize": "L'étape Auth0 /authorize a échoué — le point d'entrée universal-login n'a pas accepté notre demande. Vérifiez Paramètres → Système → Journaux pour la ligne 'Generac auth: step=authorize', puis signalez-le sur github.com/binarydev/ha-generac.",
       "auth0_step_login_form": "Le formulaire de connexion Auth0 (identifiant ou mot de passe) a renvoyé une réponse inattendue. Les champs du formulaire ou le flux ont peut-être changé. Vérifiez le journal HA pour les lignes 'POST .../login/'.",
       "auth0_step_resume": "L'étape Auth0 /authorize/resume a échoué — la connexion a semblé réussir mais la redirection de reprise était mal formée. Vérifiez le journal HA pour la ligne 'Generac auth: step=resume'.",
-      "auth0_redirect": "Auth0 a renvoyé une redirection inattendue. Vérifiez le journal HA pour les lignes 'Generac auth:' et signalez-le sur github.com/pjordanandrsn/ha-generac.",
-      "code_exchange": "Auth0 a accepté la connexion mais a rejeté l'échange de jetons (DPoP/PKCE). Vérifiez le journal HA et signalez-le sur github.com/pjordanandrsn/ha-generac.",
-      "internal": "Erreur inattendue. Vérifiez Paramètres → Système → Journaux pour la trace complète et signalez-le sur github.com/pjordanandrsn/ha-generac."
+      "auth0_redirect": "Auth0 a renvoyé une redirection inattendue. Vérifiez le journal HA pour les lignes 'Generac auth:' et signalez-le sur github.com/binarydev/ha-generac.",
+      "code_exchange": "Auth0 a accepté la connexion mais a rejeté l'échange de jetons (DPoP/PKCE). Vérifiez le journal HA et signalez-le sur github.com/binarydev/ha-generac.",
+      "internal": "Erreur inattendue. Vérifiez Paramètres → Système → Journaux pour la trace complète et signalez-le sur github.com/binarydev/ha-generac."
     },
     "abort": {
       "single_instance_allowed": "Une seule instance est autorisée.",
