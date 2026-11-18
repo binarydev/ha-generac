@@ -80,7 +80,10 @@ HISTORICAL_SUFFIXES = {
 
 # Entities this change adds for the fixture payloads below.
 NEW_SUFFIXES = {
-    GENERATOR_ID: {"sensor": ["exercise_minutes"]},
+    GENERATOR_ID: {
+        "sensor": ["exercise_minutes"],
+        "button": ["boost_polling"],
+    },
     PROPANE_ID: {"sensor": ["signal_strength", "device_battery_level"]},
 }
 
@@ -265,6 +268,9 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
         _unique_id(GENERATOR_ID, "exercise_minutes"): (
             "sensor.generator_exercise_duration"
         ),
+        _unique_id(GENERATOR_ID, "boost_polling"): (
+            "button.generator_outage_boost_poll"
+        ),
         _unique_id(
             PROPANE_ID, "signal_strength"
         ): "sensor.propane_tank_signal_strength",
@@ -282,6 +288,10 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
         == devices[_unique_id(GENERATOR_ID, "status")]
     )
     assert (
+        devices[_unique_id(GENERATOR_ID, "boost_polling")]
+        == devices[_unique_id(GENERATOR_ID, "status")]
+    )
+    assert (
         devices[_unique_id(PROPANE_ID, "device_battery_level")]
         == devices[_unique_id(PROPANE_ID, "status")]
     )
@@ -290,6 +300,7 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
 def test_every_entity_class_declares_its_own_stable_key():
     """No entity class may inherit or infer its unique_id suffix."""
     from custom_components.generac import binary_sensor
+    from custom_components.generac import button
     from custom_components.generac import image
     from custom_components.generac import sensor
     from custom_components.generac import weather
@@ -297,13 +308,13 @@ def test_every_entity_class_declares_its_own_stable_key():
 
     classes = [
         obj
-        for module in (binary_sensor, image, sensor, weather)
+        for module in (binary_sensor, button, image, sensor, weather)
         for obj in vars(module).values()
         if isinstance(obj, type)
         and issubclass(obj, GeneracEntity)
         and obj is not GeneracEntity
     ]
-    assert len(classes) == 34
+    assert len(classes) == 35
     keys = {}
     for cls in classes:
         assert "entity_key" in vars(cls), cls.__name__

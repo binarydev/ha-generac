@@ -15,7 +15,8 @@
         "data": {
           "username": "E-post",
           "password": "Passord",
-          "scan_interval": "Intervall for skyavstemning (sekunder)"
+          "scan_interval": "Intervall for skyavstemning (sekunder)",
+          "active_scan_interval": "Aktivt avstemningsintervall (sekunder)"
         }
       },
       "reauth_confirm": {
@@ -59,7 +60,9 @@
     "step": {
       "user": {
         "data": {
+          "active_scan_interval": "Aktivt avstemningsintervall i sekunder",
           "binary_sensor": "Binær sensor aktivert",
+          "button": "Knapper aktivert",
           "image": "Bilde aktivert",
           "scan_interval": "Avstemningsintervall i sekunder",
           "sensor": "Sensor aktivert",

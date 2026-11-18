@@ -31,13 +31,18 @@ DEFAULT_NAME = DOMAIN
 # faster than this provides little benefit and risks hitting their
 # throttles.
 DEFAULT_SCAN_INTERVAL = 900
+DEFAULT_ACTIVE_SCAN_INTERVAL = 120
+ACTIVE_COOLDOWN_SECONDS = 300
+DEFAULT_BOOST_DURATION_MINUTES = 30
+SERVICE_BOOST_POLLING = "boost_polling"
 
 # Platforms
 BINARY_SENSOR = "binary_sensor"
 SENSOR = "sensor"
 WEATHER = "weather"
 IMAGE = "image"
-PLATFORMS = [BINARY_SENSOR, SENSOR, WEATHER, IMAGE]
+BUTTON = "button"
+PLATFORMS = [BINARY_SENSOR, SENSOR, WEATHER, IMAGE, BUTTON]
 
 # Configuration labels
 CONF_ENABLED = "enabled"
@@ -52,6 +57,7 @@ CONF_MFA_CODE = "mfa_code"
 CONF_REFRESH_TOKEN = "refresh_token"
 CONF_DPOP_PEM = "dpop_pem"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_ACTIVE_SCAN_INTERVAL = "active_scan_interval"
 # Opt-in: keep the password in entry.data so an expired refresh token can be
 # replaced by a silent re-login instead of a manual reauth.
 CONF_REMEMBER_PASSWORD = "remember_password"
@@ -73,6 +79,7 @@ for p in PLATFORMS:
 CONF_OPTIONS = {
     **bool_opts,
     CONF_SCAN_INTERVAL: {"type": int, "default": DEFAULT_SCAN_INTERVAL},
+    CONF_ACTIVE_SCAN_INTERVAL: {"type": int, "default": DEFAULT_ACTIVE_SCAN_INTERVAL},
 }
 
 STARTUP_MESSAGE = f"""

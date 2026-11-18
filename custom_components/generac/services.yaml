@@ -1,0 +1,17 @@
+boost_polling:
+  fields:
+    duration_minutes:
+      required: false
+      default: 30
+      example: 30
+      selector:
+        number:
+          min: 1
+          max: 120
+          unit_of_measurement: min
+          mode: box
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: generac

@@ -15,7 +15,8 @@
         "data": {
           "username": "Email",
           "password": "Palavra-passe",
-          "scan_interval": "Intervalo de sondagem à cloud (segundos)"
+          "scan_interval": "Intervalo de sondagem à cloud (segundos)",
+          "active_scan_interval": "Intervalo de sondagem ativo (segundos)"
         }
       },
       "reauth_confirm": {
@@ -59,7 +60,9 @@
     "step": {
       "user": {
         "data": {
+          "active_scan_interval": "Intervalo de sondagem ativo (segundos)",
           "binary_sensor": "Sensores binários ativados",
+          "button": "Botões ativados",
           "image": "Imagem ativada",
           "scan_interval": "Intervalo de sondagem (segundos)",
           "sensor": "Sensores não binários ativados",

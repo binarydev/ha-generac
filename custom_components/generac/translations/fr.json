@@ -15,7 +15,8 @@
         "data": {
           "username": "E-mail",
           "password": "Mot de passe",
-          "scan_interval": "Intervalle d'interrogation du cloud (secondes)"
+          "scan_interval": "Intervalle d'interrogation du cloud (secondes)",
+          "active_scan_interval": "Intervalle d'interrogation actif (secondes)"
         }
       },
       "reauth_confirm": {
@@ -59,7 +60,9 @@
     "step": {
       "user": {
         "data": {
+          "active_scan_interval": "Intervalle d’interrogation actif en secondes",
           "binary_sensor": "Capteur binaire activé",
+          "button": "Boutons activés",
           "image": "Image activé",
           "scan_interval": "Intervalle d’interrogation en secondes",
           "sensor": "Capteur activé",

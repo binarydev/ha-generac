@@ -12,6 +12,7 @@
 | Platform        | Entities created for each generator                                                                                                                                                                                                                                               |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`                                                                                                                                                                                                           |
+| `button`        | `boost_polling`                                                                                                                                                                                                                                                                   |
 | `sensor`        | `status`, `run_time`, `protection_time`, `activation_date`, `last_seen`, `connection_time`, `battery_voltage`, `device_type`, `dealer_email`, `dealer_name`, `dealer_phone`, `address`, `status_text`, `status_label`, `serial_number`, `model_number`, `device_ssid`, `panel_id` |
 
 | Platform        | Entities created for each propane tank monitor                                                                                 |
@@ -64,6 +65,20 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 10. The integration should initialize and begin pulling your device information within seconds
 
 ## Configuration is done in the UI
+
+### Adaptive Polling & Outage Boost
+
+To stay gentle on Generac's rate-limited cloud API during normal standby while reacting quickly during exercises, outages, and warnings, polling adapts automatically between two configurable intervals (both clamped to at least `10` seconds):
+
+- **Idle polling interval (`scan_interval`)**: Default `900` seconds (15 minutes). Used when all devices are idle/ready.
+- **Active polling interval (`active_scan_interval`)**: Default `120` seconds (2 minutes), capped at `min(scan_interval, active_scan_interval)` so fast polling never slows down a shorter idle interval.
+
+Fast polling activates automatically whenever any generator is **Running**, **Exercising**, **Warning**, or **Stopped**, or when any device reports `isConnecting`, `showWarning`, or `isRunning`. After the fleet returns to idle, fast polling remains active for a `300`-second (5-minute) cooldown before returning to the idle interval.
+
+You can also trigger fast polling manually (for example, from an automation triggered by a utility power-loss sensor) using either:
+
+- **Outage Boost Poll button (`button.<device>_outage_boost_poll`)**: Created for each generator; pressing it immediately refreshes data and enables boost polling for `30` minutes.
+- **`generac.boost_polling` action (service)**: Switches loaded entries into boost polling and triggers an immediate refresh. Accepts optional `duration_minutes` (`1`–`120`, default `30`) and optional `entry_id` (targets all loaded Generac entries if omitted).
 
 ## Username + Password Authentication
 
