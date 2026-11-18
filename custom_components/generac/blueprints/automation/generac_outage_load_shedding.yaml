@@ -1,0 +1,96 @@
+blueprint:
+  name: Generac Outage Load Shedding
+  description: >-
+    Automatically turn off high-draw appliances or circuits when a Generac
+    generator transitions to "Running" (ignoring scheduled "Exercising"
+    cycles), wait for utility power to stabilize in "Ready", and optionally
+    restore shed loads with a stagger delay.
+  domain: automation
+  author: ha-generac
+  input:
+    generator_status:
+      name: Generator Status Sensor
+      description: Generac status sensor for your generator.
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    shed_entities:
+      name: High-Draw Entities to Shed
+      description: >-
+        Entities (switches, climates, water heaters, EV chargers, etc.) to
+        turn off while running on generator power.
+      selector:
+        entity:
+          multiple: true
+    ready_stabilization_delay:
+      name: Utility Stabilization Delay
+      description: >-
+        Seconds to wait after the generator returns to "Ready" before
+        restoring loads.
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 600
+          unit_of_measurement: seconds
+    restore_loads:
+      name: Restore Shed Loads
+      description: Turn shed entities back on after utility power stabilizes.
+      default: true
+      selector:
+        boolean: {}
+    restore_stagger_delay:
+      name: Restore Stagger Delay
+      description: >-
+        Optional delay between turning each shed entity back on to avoid
+        inrush spikes (0 restores all entities without pausing).
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 120
+          unit_of_measurement: seconds
+
+mode: restart
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input generator_status
+    to: "Running"
+
+variables:
+  restore_loads: !input restore_loads
+  restore_stagger_delay: !input restore_stagger_delay
+
+actions:
+  - alias: Shed high-draw loads
+    action: homeassistant.turn_off
+    target:
+      entity_id: !input shed_entities
+  - alias: Wait for generator to return to Ready
+    wait_for_trigger:
+      - trigger: state
+        entity_id: !input generator_status
+        to: "Ready"
+        for:
+          seconds: !input ready_stabilization_delay
+  - if:
+      - condition: template
+        value_template: "{{ restore_loads }}"
+    then:
+      - alias: Restore shed loads
+        repeat:
+          for_each: !input shed_entities
+          sequence:
+            - action: homeassistant.turn_on
+              target:
+                entity_id: "{{ repeat.item }}"
+            - if:
+                - condition: template
+                  value_template: "{{ (restore_stagger_delay | int(0)) > 0 and not repeat.last }}"
+              then:
+                - delay:
+                    seconds: !input restore_stagger_delay

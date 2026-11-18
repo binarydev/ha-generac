@@ -1,0 +1,91 @@
+blueprint:
+  name: Generac Pre-Storm Readiness Digest
+  description: >-
+    When a weather alert or storm readiness trigger turns on, send a summary of
+    your generator's readiness including status, connectivity, battery voltage,
+    hours until service, and optional propane tank fuel level.
+  domain: automation
+  author: ha-generac
+  input:
+    weather_alert_entity:
+      name: Weather Alert / Trigger Entity
+      description: Binary sensor or input boolean that turns on ahead of severe weather.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+            - domain: input_boolean
+    status_sensor:
+      name: Generator Status Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    battery_voltage_sensor:
+      name: Generator Battery Voltage Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    is_connected_sensor:
+      name: Generator Connected Binary Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: binary_sensor
+    hours_until_service_sensor:
+      name: Hours Until Service Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    fuel_level_sensor:
+      name: Propane Fuel Level Sensor (Optional)
+      description: Optional Generac propane tank monitor fuel level sensor.
+      default: ""
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    notify_service:
+      name: Notification Service
+      description: >-
+        Home Assistant notify service to call (for example, notify.notify or
+        notify.mobile_app_your_phone).
+      default: notify.notify
+      selector:
+        text: {}
+
+mode: single
+
+triggers:
+  - trigger: state
+    entity_id: !input weather_alert_entity
+    to: "on"
+
+variables:
+  status_entity: !input status_sensor
+  battery_entity: !input battery_voltage_sensor
+  connected_entity: !input is_connected_sensor
+  service_entity: !input hours_until_service_sensor
+  fuel_entity: !input fuel_level_sensor
+
+actions:
+  - alias: Send pre-storm generator readiness digest
+    action: !input notify_service
+    data:
+      title: "Generac Pre-Storm Readiness Digest"
+      message: >-
+        {% set connected = is_state(connected_entity, 'on') %}
+        Status: {{ states(status_entity) }}
+        Connected: {{ 'Online' if connected else 'Offline' }}
+        Battery Voltage: {{ states(battery_entity) }} V
+        Hours Until Service: {{ states(service_entity) }} h
+        {% if fuel_entity %}
+        Propane Fuel Level: {{ states(fuel_entity) }}%
+        {% endif %}

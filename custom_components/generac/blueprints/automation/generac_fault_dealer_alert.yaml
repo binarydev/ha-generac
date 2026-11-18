@@ -1,0 +1,105 @@
+blueprint:
+  name: Generac Fault & Dealer Contact Alert
+  description: >-
+    Send a detailed notification including generator status, diagnostic text,
+    and your preferred dealer's name and phone number when a fault, stop,
+    communication issue, warning, or maintenance alert occurs.
+  domain: automation
+  author: ha-generac
+  input:
+    status_sensor:
+      name: Generator Status Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    status_text_sensor:
+      name: Generator Status Text Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    warning_sensor:
+      name: Generator Warning Binary Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: binary_sensor
+    maintenance_sensor:
+      name: Generator Maintenance Alert Binary Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: binary_sensor
+    dealer_name_sensor:
+      name: Dealer Name Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    dealer_phone_sensor:
+      name: Dealer Phone Sensor
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    notify_service:
+      name: Notification Service
+      description: >-
+        Home Assistant notify service to call (for example, notify.notify or
+        notify.mobile_app_your_phone).
+      default: notify.notify
+      selector:
+        text: {}
+
+mode: queued
+max: 10
+
+triggers:
+  - trigger: state
+    entity_id: !input status_sensor
+    to:
+      - "Warning"
+      - "Stopped"
+      - "Communication Issue"
+  - trigger: state
+    entity_id: !input warning_sensor
+    to: "on"
+  - trigger: state
+    entity_id: !input maintenance_sensor
+    to: "on"
+
+variables:
+  status_entity: !input status_sensor
+  status_text_entity: !input status_text_sensor
+  maintenance_entity: !input maintenance_sensor
+  dealer_name_entity: !input dealer_name_sensor
+  dealer_phone_entity: !input dealer_phone_sensor
+
+actions:
+  - alias: Send fault and dealer contact notification
+    action: !input notify_service
+    data:
+      title: >-
+        {% if trigger.entity_id == maintenance_entity %}
+        Generac Maintenance Alert ({{ states(status_entity) }})
+        {% else %}
+        Generac Alert: {{ states(status_entity) }}
+        {% endif %}
+      message: >-
+        {% set status = states(status_entity) %}
+        {% set details = states(status_text_entity) %}
+        {% set dealer = states(dealer_name_entity) %}
+        {% set phone = states(dealer_phone_entity) %}
+        Status: {{ status }}
+        {% if details not in ['unknown', 'unavailable', ''] %}
+        Details: {{ details }}
+        {% endif %}
+        Dealer: {{ dealer if dealer not in ['unknown', 'unavailable', ''] else 'Not configured' }}
+        Phone: {{ phone if phone not in ['unknown', 'unavailable', ''] else 'Not configured' }}

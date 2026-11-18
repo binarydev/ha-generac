@@ -9,10 +9,11 @@
 
 **Custom Generac integration component with support for generators and propane tank monitors. It will set up the following platforms.**
 
-| Platform        | Entities created for each generator                                                                                                                                                                                                                                               |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`                                                                                                                                                                                                           |
-| `sensor`        | `status`, `run_time`, `protection_time`, `activation_date`, `last_seen`, `connection_time`, `battery_voltage`, `device_type`, `dealer_email`, `dealer_name`, `dealer_phone`, `address`, `status_text`, `status_label`, `serial_number`, `model_number`, `device_ssid`, `panel_id` |
+| Platform        | Entities created for each generator                                                                                                                                                                                                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`, `missed_exercise`                                                                                                                                                                                                               |
+| `sensor`        | `status`, `run_time`, `protection_time`, `activation_date`, `last_seen`, `connection_time`, `battery_voltage`, `device_type`, `dealer_email`, `dealer_name`, `dealer_phone`, `address`, `status_text`, `status_label`, `serial_number`, `model_number`, `device_ssid`, `panel_id`, `hours_until_service` |
+| `button`        | `reset_service_timer`                                                                                                                                                                                                                                                                                    |
 
 | Platform        | Entities created for each propane tank monitor                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -64,6 +65,30 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 10. The integration should initialize and begin pulling your device information within seconds
 
 ## Configuration is done in the UI
+
+### Readiness Tracking, Maintenance Timer & Repairs Alerts
+
+Each generator automatically tracks exercise activity and maintenance runtime baselines using Home Assistant storage (persisting cleanly across restarts without reloading the integration):
+
+- **Maintenance Service Timer**:
+  - `sensor.<generator>_hours_until_service` shows estimated runtime hours remaining until the configured service interval (default `100` hours, configurable via **Options** -> `service_interval_hours`; set to `0` to disable).
+  - On first setup, the baseline initializes to the generator's current `run_time` to avoid false day-1 alarms.
+  - After completing maintenance (oil change, filter, etc.), press **Reset Maintenance Timer** (`button.<generator>_reset_maintenance_timer`) on the device page to reset the baseline to the current run hours and clear any timer-based Repairs issue immediately.
+- **Exercise Readiness Tracking**:
+  - `binary_sensor.<generator>_missed_exercise` turns `on` if no `Running`/`Exercising` status or run-hour increase is observed within `exercise_interval_days` (default `16` days to cover weekly and biweekly schedules; set to `0` to disable).
+- **Proactive Home Assistant Repairs Alerts**:
+  - `low_battery_voltage`: raised when generator starting battery voltage drops below `low_battery_threshold` (default `12.2` V).
+  - `missed_exercise`: raised when the generator exceeds `exercise_interval_days` without observed activity.
+  - `maintenance_due`: raised when runtime since the last service reset reaches `service_interval_hours` or Mobile Link reports a maintenance alert.
+  - `subscription_dunning`: raised when Mobile Link reports a past-due/dunning subscription status.
+
+### Bundled Automation Blueprints
+
+When the integration sets up, three ready-to-use automation blueprints are automatically installed to `<config>/blueprints/automation/generac/`:
+
+1. **Generac Outage Load Shedding** (`generac_outage_load_shedding.yaml`) — Sheds high-draw entities when status transitions to `Running` (ignoring `Exercising` cycles), waits for `Ready` stabilization, and optionally restores loads with a stagger delay.
+2. **Generac Fault & Dealer Contact Alert** (`generac_fault_dealer_alert.yaml`) — Sends a notification populated with generator status, diagnostic `status_text`, and your preferred dealer's name and phone number on `Warning`, `Stopped`, `Communication Issue`, warning, or maintenance alerts.
+3. **Generac Pre-Storm Readiness Digest** (`generac_storm_readiness_digest.yaml`) — Sends a readiness digest with status, connectivity, battery voltage, hours until service, and optional propane fuel level when a weather alert or trigger entity turns `on`.
 
 ## Username + Password Authentication
 

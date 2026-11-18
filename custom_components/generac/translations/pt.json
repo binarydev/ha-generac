@@ -60,9 +60,13 @@
       "user": {
         "data": {
           "binary_sensor": "Sensores binários ativados",
+          "button": "Botões ativados",
+          "exercise_interval_days": "Intervalo de alerta de exercício em falta (dias, 0 para desativar)",
           "image": "Imagem ativada",
+          "low_battery_threshold": "Limite de alerta de tensão baixa da bateria (V)",
           "scan_interval": "Intervalo de sondagem (segundos)",
           "sensor": "Sensores não binários ativados",
+          "service_interval_hours": "Intervalo de manutenção (horas, 0 para desativar)",
           "switch": "Interruptor ativado",
           "weather": "Sensor meteorológico ativado"
         }

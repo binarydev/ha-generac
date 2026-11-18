@@ -72,9 +72,13 @@
       "user": {
         "data": {
           "binary_sensor": "Binary sensors enabled",
+          "button": "Buttons enabled",
+          "exercise_interval_days": "Missed exercise alert interval (days, 0 to disable)",
           "image": "Image enabled",
+          "low_battery_threshold": "Low battery voltage alert threshold (V)",
           "scan_interval": "Cloud polling interval (seconds)",
           "sensor": "Non-binary sensors enabled",
+          "service_interval_hours": "Maintenance service interval (hours, 0 to disable)",
           "switch": "Switch enabled",
           "weather": "Weather sensor enabled"
         }
@@ -85,6 +89,22 @@
     "refresh_token_expiring": {
       "title": "Generac sign-in for {username} expires soon",
       "description": "Generac sessions expire 90 days after sign-in. The session for {username} expires around {expires}, after which your Generac devices will stop updating.\n\nTo renew it, go to Settings → Devices & services → Generac MobileLink, open the ⋮ menu, choose **Reconfigure** and sign in again. Tick **Remember password** to have the integration renew the session automatically from now on."
+    },
+    "low_battery_voltage": {
+      "title": "Low battery voltage on {device_name}",
+      "description": "Generator {device_name} reported a battery voltage of {voltage} V, below the configured threshold of {threshold} V. Inspect the battery, charger, and terminals to ensure reliable starting during an outage."
+    },
+    "missed_exercise": {
+      "title": "Generator {device_name} missed its scheduled exercise",
+      "description": "Generator {device_name} has not recorded a run or exercise cycle in {days_since} days (alert interval: {interval_days} days). Verify the generator is in Auto mode and inspect its exercise schedule and Mobile Link connection."
+    },
+    "maintenance_due": {
+      "title": "Maintenance due for {device_name}",
+      "description": "Generator {device_name} requires scheduled maintenance ({reason}). After servicing the generator, press **Reset Maintenance Timer** on the device page to reset the countdown."
+    },
+    "subscription_dunning": {
+      "title": "Mobile Link subscription billing issue for {device_name}",
+      "description": "Generac Mobile Link reports a past-due or dunning subscription status for {device_name}. Update your payment method in the Mobile Link portal to avoid remote monitoring interruption."
     }
   }
 }

@@ -60,9 +60,13 @@
       "user": {
         "data": {
           "binary_sensor": "Binær sensor aktivert",
+          "button": "Knapper aktivert",
+          "exercise_interval_days": "Varselintervall for uteblitt testkjøring (dager, 0 for å deaktivere)",
           "image": "Bilde aktivert",
+          "low_battery_threshold": "Terskel for varsel om lav batterispenning (V)",
           "scan_interval": "Avstemningsintervall i sekunder",
           "sensor": "Sensor aktivert",
+          "service_interval_hours": "Serviceintervall for vedlikehold (timer, 0 for å deaktivere)",
           "switch": "Bryter aktivert",
           "weather": "Værsensor aktivert"
         }

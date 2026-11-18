@@ -315,3 +315,43 @@ async def test_first_refresh_token_rotation_does_not_suppress_later_reload(
         await hass.async_block_till_done()
 
     mock_reload.assert_called_once_with(config_entry.entry_id)
+
+
+async def test_setup_entry_installs_bundled_blueprints(
+    hass: HomeAssistant, bypass_get_data
+):
+    """Setup copies bundled automation blueprints into HA config blueprints dir."""
+    from pathlib import Path
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=_make_mock_config(), entry_id="bp_setup_test"
+    )
+    config_entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    bp_dir = Path(hass.config.path("blueprints", "automation", DOMAIN))
+    assert sorted(p.name for p in bp_dir.glob("*.yaml")) == [
+        "generac_fault_dealer_alert.yaml",
+        "generac_outage_load_shedding.yaml",
+        "generac_storm_readiness_digest.yaml",
+    ]
+
+
+async def test_setup_entry_survives_blueprint_install_oserror(
+    hass: HomeAssistant, bypass_get_data
+):
+    """Read-only config blueprint dirs log a warning rather than aborting setup."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=_make_mock_config(), entry_id="bp_oserror_test"
+    )
+    config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.generac.install_bundled_blueprints",
+        side_effect=OSError("read-only filesystem"),
+    ):
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+    assert config_entry.entry_id in hass.data[DOMAIN]
