@@ -4,12 +4,15 @@ from typing import Type
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .const import DEVICE_TYPE_GENERATOR
 from .const import DOMAIN
 from .coordinator import GeneracDataUpdateCoordinator
 from .entity import GeneracEntity
+from .models import Item
 
 
 async def async_setup_entry(
@@ -22,17 +25,28 @@ async def async_setup_entry(
         async_add_entities(
             sensor(coordinator, entry, device_id, item)
             for device_id, item in data.items()
-            for sensor in sensors()
+            for sensor in sensors(item)
         )
 
 
-def sensors() -> Type[GeneracEntity]:
-    return [
+def sensors(item: Item | None = None) -> list[Type[GeneracEntity]]:
+    """Decide which binary sensors to create for a device."""
+    lst: list[Type[GeneracEntity]] = [
         GeneracConnectedSensor,
         GeneracConnectingSensor,
         GeneracMaintenanceAlertSensor,
         GeneracWarningSensor,
     ]
+    if item is None:
+        return lst
+    if item.apparatus.type == DEVICE_TYPE_GENERATOR and (
+        item.apparatusDetail.enrolledInVpp is not None
+        or item.apparatusDetail.hasActiveVppEvent is not None
+    ):
+        lst.extend([GeneracVppEnrolledSensor, GeneracActiveVppEventSensor])
+    if item.apparatusDetail.subscription is not None:
+        lst.append(GeneracSubscriptionDunningSensor)
+    return lst
 
 
 class GeneracConnectedSensor(GeneracEntity, BinarySensorEntity):
@@ -101,3 +115,47 @@ class GeneracWarningSensor(GeneracEntity, BinarySensorEntity):
     def is_on(self):
         """Return true if the binary_sensor is on."""
         return self.aparatus_detail.showWarning
+
+
+class GeneracVppEnrolledSensor(GeneracEntity, BinarySensorEntity):
+    """Whether the generator is enrolled in a Virtual Power Plant program."""
+
+    entity_key = "enrolled_in_vpp"
+    entity_label = "VPP Enrolled"
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def is_on(self):
+        """Return true if the generator is enrolled in VPP."""
+        return bool(self.aparatus_detail.enrolledInVpp)
+
+
+class GeneracActiveVppEventSensor(GeneracEntity, BinarySensorEntity):
+    """Whether a Virtual Power Plant dispatch event is currently active."""
+
+    entity_key = "active_vpp_event"
+    entity_label = "Active VPP Event"
+
+    @property
+    def is_on(self):
+        """Return true if a VPP event is active."""
+        return bool(self.aparatus_detail.hasActiveVppEvent)
+
+
+class GeneracSubscriptionDunningSensor(GeneracEntity, BinarySensorEntity):
+    """Whether the Mobile Link subscription is in billing dunning."""
+
+    entity_key = "subscription_dunning"
+    entity_label = "Subscription Billing Alert"
+
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def is_on(self):
+        """Return true if subscription billing is in dunning."""
+        return bool(
+            self.aparatus_detail.subscription
+            and self.aparatus_detail.subscription.isDunning
+        )

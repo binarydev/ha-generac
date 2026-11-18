@@ -31,6 +31,7 @@ DEFAULT_NAME = DOMAIN
 # faster than this provides little benefit and risks hitting their
 # throttles.
 DEFAULT_SCAN_INTERVAL = 900
+DEFAULT_FUEL_BURN_RATE = 2.2
 
 # Platforms
 BINARY_SENSOR = "binary_sensor"
@@ -52,6 +53,7 @@ CONF_MFA_CODE = "mfa_code"
 CONF_REFRESH_TOKEN = "refresh_token"
 CONF_DPOP_PEM = "dpop_pem"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_FUEL_BURN_RATE = "fuel_burn_rate"
 # Opt-in: keep the password in entry.data so an expired refresh token can be
 # replaced by a silent re-login instead of a manual reauth.
 CONF_REMEMBER_PASSWORD = "remember_password"
@@ -73,6 +75,7 @@ for p in PLATFORMS:
 CONF_OPTIONS = {
     **bool_opts,
     CONF_SCAN_INTERVAL: {"type": int, "default": DEFAULT_SCAN_INTERVAL},
+    CONF_FUEL_BURN_RATE: {"type": float, "default": DEFAULT_FUEL_BURN_RATE},
 }
 
 STARTUP_MESSAGE = f"""

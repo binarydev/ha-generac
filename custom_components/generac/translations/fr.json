@@ -60,6 +60,7 @@
       "user": {
         "data": {
           "binary_sensor": "Capteur binaire activé",
+          "fuel_burn_rate": "Consommation de carburant estimée (gal/h)",
           "image": "Image activé",
           "scan_interval": "Intervalle d’interrogation en secondes",
           "sensor": "Capteur activé",

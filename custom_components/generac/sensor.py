@@ -1,5 +1,7 @@
 """Sensor platform for generac."""
 import logging
+import math
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Type
 
@@ -7,12 +9,17 @@ from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.sensor.const import SensorStateClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.const import PERCENTAGE
 from homeassistant.const import UnitOfElectricPotential
 from homeassistant.const import UnitOfTemperature
+from homeassistant.const import UnitOfTime
+from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .const import CONF_FUEL_BURN_RATE
+from .const import DEFAULT_FUEL_BURN_RATE
 from .const import DEVICE_TYPE_GENERATOR
 from .const import DEVICE_TYPE_PROPANE_MONITOR
 from .const import DOMAIN
@@ -57,6 +64,7 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
             AddressSensor,
             StatusTextSensor,
             StatusLabelSensor,
+            ErrorCodeSensor,
             SerialNumberSensor,
             ModelNumberSensor,
             DeviceSsidSensor,
@@ -70,6 +78,8 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
             StatusSensor,
             CapacitySensor,
             FuelLevelSensor,
+            RemainingFuelSensor,
+            EstimatedRuntimeSensor,
             FuelTypeSensor,
             OrientationSensor,
             LastReadingDateSensor,
@@ -151,19 +161,52 @@ _LOGGER = logging.getLogger(__name__)
 def _safe_float(val, label: str = ""):
     """Best-effort float conversion; return None on bad data so the
     sensor reports ``unknown`` instead of crashing native_value."""
-    if val is None:
+    if val is None or isinstance(val, bool):
         return None
     if isinstance(val, (int, float)):
-        return float(val)
+        result = float(val)
+        return result if math.isfinite(result) else None
     if isinstance(val, str) and val.strip().endswith("%"):
         val = val.strip()[:-1].strip()
     try:
-        return float(val)
+        result = float(val)
     except (TypeError, ValueError) as ex:
         _LOGGER.debug(
             "Could not convert %s sensor value %r to float: %s", label, val, ex
         )
         return None
+    return result if math.isfinite(result) else None
+
+
+def _remaining_gallons(item: Item) -> float | None:
+    """Compute remaining propane volume in gallons from tank capacity and level."""
+    capacity = _safe_float(
+        get_prop_value(item.apparatusDetail.tuProperties, 1, None),
+        "capacity",
+    )
+    fuel_level = _safe_float(
+        get_prop_value(item.apparatusDetail.tuProperties, 9, None),
+        "fuel_level",
+    )
+    if capacity is None or capacity <= 0 or fuel_level is None or fuel_level < 0:
+        return None
+    return round(capacity * (fuel_level / 100.0), 2)
+
+
+def _get_fuel_burn_rate(config_entry: ConfigEntry) -> float:
+    """Return a positive fuel burn rate (gal/h) from options or default."""
+    options = (
+        config_entry.options
+        if isinstance(getattr(config_entry, "options", None), Mapping)
+        else {}
+    )
+    rate = _safe_float(
+        options.get(CONF_FUEL_BURN_RATE, DEFAULT_FUEL_BURN_RATE),
+        CONF_FUEL_BURN_RATE,
+    )
+    if rate is None or rate <= 0:
+        return DEFAULT_FUEL_BURN_RATE
+    return rate
 
 
 class StatusSensor(GeneracEntity, SensorEntity):
@@ -207,6 +250,7 @@ class DeviceTypeSensor(GeneracEntity, SensorEntity):
 
     entity_key = "device_type"
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     options = [
         "Wifi",
         "Ethernet",
@@ -239,6 +283,7 @@ class RunTimeSensor(GeneracEntity, SensorEntity):
 
     entity_key = "run_time"
 
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
     device_class = SensorDeviceClass.DURATION
     native_unit_of_measurement = "h"
 
@@ -254,6 +299,7 @@ class ProtectionTimeSensor(GeneracEntity, SensorEntity):
 
     entity_key = "protection_time"
 
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
     device_class = SensorDeviceClass.DURATION
     native_unit_of_measurement = "h"
 
@@ -269,6 +315,7 @@ class ActivationDateSensor(GeneracEntity, SensorEntity):
 
     entity_key = "activation_date"
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     device_class = SensorDeviceClass.TIMESTAMP
 
     @property
@@ -285,6 +332,7 @@ class LastSeenSensor(GeneracEntity, SensorEntity):
 
     entity_key = "last_seen"
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     device_class = SensorDeviceClass.TIMESTAMP
 
     @property
@@ -301,6 +349,7 @@ class ConnectionTimeSensor(GeneracEntity, SensorEntity):
 
     entity_key = "connection_time"
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     device_class = SensorDeviceClass.TIMESTAMP
 
     @property
@@ -317,6 +366,7 @@ class BatteryVoltageSensor(GeneracEntity, SensorEntity):
 
     entity_key = "battery_voltage"
 
+    _attr_state_class = SensorStateClass.MEASUREMENT
     device_class = SensorDeviceClass.VOLTAGE
     native_unit_of_measurement = UnitOfElectricPotential.VOLT
     suggested_display_precision = 1
@@ -334,6 +384,7 @@ class ExerciseMinutesSensor(GeneracEntity, SensorEntity):
     entity_key = "exercise_minutes"
     entity_label = "Exercise Duration"
 
+    _attr_state_class = SensorStateClass.MEASUREMENT
     device_class = SensorDeviceClass.DURATION
     native_unit_of_measurement = "min"
 
@@ -348,6 +399,7 @@ class OutdoorTemperatureSensor(GeneracEntity, SensorEntity):
 
     entity_key = "outdoor_temperature"
 
+    _attr_state_class = SensorStateClass.MEASUREMENT
     device_class = SensorDeviceClass.TEMPERATURE
 
     @property
@@ -377,6 +429,8 @@ class OutdoorTemperatureSensor(GeneracEntity, SensorEntity):
 class SerialNumberSensor(GeneracEntity, SensorEntity):
     entity_key = "serial_number"
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
@@ -386,6 +440,8 @@ class SerialNumberSensor(GeneracEntity, SensorEntity):
 class ModelNumberSensor(GeneracEntity, SensorEntity):
     entity_key = "model_number"
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
@@ -394,6 +450,8 @@ class ModelNumberSensor(GeneracEntity, SensorEntity):
 
 class DeviceSsidSensor(GeneracEntity, SensorEntity):
     entity_key = "device_ssid"
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self):
@@ -419,8 +477,28 @@ class StatusTextSensor(GeneracEntity, SensorEntity):
         return self.aparatus_detail.statusText
 
 
+class ErrorCodeSensor(GeneracEntity, SensorEntity):
+    """Active generator fault or error code reported by Mobile Link."""
+
+    entity_key = "error_code"
+    entity_label = "Error Code"
+
+    _attr_icon = "mdi:alert-octagon-outline"
+
+    @property
+    def native_value(self):
+        """Return the stripped error code label if non-empty, else None."""
+        code = self.aparatus_detail.eCodeLabel
+        if not isinstance(code, str):
+            return None
+        stripped = code.strip()
+        return stripped if stripped else None
+
+
 class AddressSensor(GeneracEntity, SensorEntity):
     entity_key = "address"
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self):
@@ -431,6 +509,8 @@ class AddressSensor(GeneracEntity, SensorEntity):
 class DealerNameSensor(GeneracEntity, SensorEntity):
     entity_key = "dealer_name"
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
@@ -439,6 +519,8 @@ class DealerNameSensor(GeneracEntity, SensorEntity):
 
 class DealerEmailSensor(GeneracEntity, SensorEntity):
     entity_key = "dealer_email"
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self):
@@ -449,6 +531,8 @@ class DealerEmailSensor(GeneracEntity, SensorEntity):
 class DealerPhoneSensor(GeneracEntity, SensorEntity):
     entity_key = "dealer_phone"
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
@@ -457,6 +541,8 @@ class DealerPhoneSensor(GeneracEntity, SensorEntity):
 
 class PanelIDSensor(GeneracEntity, SensorEntity):
     entity_key = "panel_id"
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self):
@@ -470,16 +556,23 @@ class CapacitySensor(GeneracEntity, SensorEntity):
 
     entity_key = "capacity"
 
+    _attr_device_class = SensorDeviceClass.VOLUME_STORAGE
+    _attr_native_unit_of_measurement = UnitOfVolume.GALLONS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        return get_prop_value(self.aparatus_detail.tuProperties, 1, 0)
+        val = get_prop_value(self.aparatus_detail.tuProperties, 1, 0)
+        return _safe_float(val, "capacity")
 
 
 class FuelTypeSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
     entity_key = "fuel_type"
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self):
@@ -491,6 +584,8 @@ class OrientationSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
     entity_key = "orientation"
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self):
@@ -530,6 +625,7 @@ class FuelLevelSensor(GeneracEntity, SensorEntity):
 
     entity_key = "fuel_level"
 
+    _attr_state_class = SensorStateClass.MEASUREMENT
     device_class = SensorDeviceClass.BATTERY
     native_unit_of_measurement = PERCENTAGE
 
@@ -540,11 +636,52 @@ class FuelLevelSensor(GeneracEntity, SensorEntity):
         return _safe_float(val, "fuel_level")
 
 
+class RemainingFuelSensor(GeneracEntity, SensorEntity):
+    """Estimated remaining propane fuel volume in gallons."""
+
+    entity_key = "remaining_fuel"
+    entity_label = "Remaining Fuel"
+
+    _attr_device_class = SensorDeviceClass.VOLUME_STORAGE
+    _attr_native_unit_of_measurement = UnitOfVolume.GALLONS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+    _attr_icon = "mdi:propane-tank-outline"
+
+    @property
+    def native_value(self):
+        """Return estimated remaining propane volume in gallons."""
+        return _remaining_gallons(self.item)
+
+
+class EstimatedRuntimeSensor(GeneracEntity, SensorEntity):
+    """Estimated generator runtime remaining from stored propane fuel."""
+
+    entity_key = "estimated_runtime"
+    entity_label = "Estimated Runtime Remaining"
+
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+    _attr_icon = "mdi:timer-sand"
+
+    @property
+    def native_value(self):
+        """Return estimated runtime remaining in hours."""
+        remaining_gallons = _remaining_gallons(self.item)
+        if remaining_gallons is None:
+            return None
+        burn_rate = _get_fuel_burn_rate(self.config_entry)
+        return round(remaining_gallons / burn_rate, 1)
+
+
 class SignalStrengthSensor(GeneracEntity, SensorEntity):
     """generac Sensor class."""
 
     entity_key = "signal_strength"
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:signal-cellular-2"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -565,6 +702,7 @@ class DeviceBatteryLevelSensor(GeneracEntity, SensorEntity):
 
     _attr_device_class = SensorDeviceClass.BATTERY
     _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def native_value(self):

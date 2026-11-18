@@ -167,7 +167,59 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         "weather": True,
         "image": True,
         "scan_interval": 120,
+        "fuel_burn_rate": 2.2,
     }
+
+
+@pytest.mark.asyncio
+async def test_options_flow_fuel_burn_rate(hass: HomeAssistant) -> None:
+    """Fuel burn rate accepts positive numbers, rejects <= 0, and recovers bad defaults."""
+    from custom_components.generac.const import CONF_FUEL_BURN_RATE
+    from custom_components.generac.const import DEFAULT_FUEL_BURN_RATE
+    from homeassistant.data_entry_flow import InvalidData
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={CONF_FUEL_BURN_RATE: -5},
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == "form"
+
+    # Non-positive burn rate must be rejected by schema validation.
+    with pytest.raises(InvalidData):
+        await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={CONF_FUEL_BURN_RATE: 0}
+        )
+    with pytest.raises(InvalidData):
+        await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={CONF_FUEL_BURN_RATE: -1.5}
+        )
+
+    # Submitting without overriding fuel_burn_rate uses sanitized default (2.2),
+    # and passing an int coerces to float.
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={CONF_FUEL_BURN_RATE: 3}
+    )
+    assert result["type"] == "create_entry"
+    assert entry.options[CONF_FUEL_BURN_RATE] == 3.0
+
+    # Non-numeric / bool pre-existing value also recovers to DEFAULT_FUEL_BURN_RATE.
+    for bad in ("not-a-number", True, float("nan")):
+        hass.config_entries.async_update_entry(
+            entry, options={CONF_FUEL_BURN_RATE: bad}
+        )
+        res = await hass.config_entries.options.async_init(entry.entry_id)
+        done = await hass.config_entries.options.async_configure(
+            res["flow_id"], user_input={}
+        )
+        assert done["type"] == "create_entry"
+        assert entry.options[CONF_FUEL_BURN_RATE] == DEFAULT_FUEL_BURN_RATE
 
 
 @pytest.mark.asyncio

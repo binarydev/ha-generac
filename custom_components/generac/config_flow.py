@@ -22,7 +22,9 @@ is abandoned.
 """
 import asyncio
 import logging
+import math
 import time
+from collections.abc import Mapping
 
 import aiohttp
 import voluptuous as vol
@@ -37,6 +39,7 @@ from .auth import InvalidMfaCodeError
 from .auth import MfaRequiredError
 from .auth import MfaUnsupportedError
 from .const import CONF_DPOP_PEM
+from .const import CONF_FUEL_BURN_RATE
 from .const import CONF_MFA_CODE
 from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
@@ -45,6 +48,7 @@ from .const import CONF_REMEMBER_PASSWORD
 from .const import CONF_SCAN_INTERVAL
 from .const import CONF_TOKEN_ISSUED_AT
 from .const import CONF_USERNAME
+from .const import DEFAULT_FUEL_BURN_RATE
 from .const import DEFAULT_SCAN_INTERVAL
 from .const import DOMAIN
 from .utils import async_client_session
@@ -463,7 +467,29 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
     """Config flow options handler for generac."""
 
     def __init__(self, config_entry):
-        self.options = dict(config_entry.options)
+        raw_options = getattr(config_entry, "options", None)
+        self.options = dict(raw_options) if isinstance(raw_options, Mapping) else {}
+
+    @staticmethod
+    def _option_schema(key: str, opt: dict):
+        """Return the voluptuous validator for an option key."""
+        if key == CONF_FUEL_BURN_RATE:
+            return vol.All(vol.Coerce(float), vol.Range(min=0.0, min_included=False))
+        return opt["type"]
+
+    @staticmethod
+    def _option_default(key: str, opt: dict, current: dict):
+        """Return a safe form default for an option key."""
+        default = current.get(key, opt["default"])
+        if key == CONF_FUEL_BURN_RATE:
+            if isinstance(default, bool):
+                return DEFAULT_FUEL_BURN_RATE
+            try:
+                rate = float(default)
+            except (TypeError, ValueError):
+                return DEFAULT_FUEL_BURN_RATE
+            return rate if math.isfinite(rate) and rate > 0 else DEFAULT_FUEL_BURN_RATE
+        return default
 
     async def async_step_init(self, user_input=None):  # pylint: disable=unused-argument
         return await self.async_step_user()
@@ -477,9 +503,9 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(k, default=self.options.get(k, v["default"])): v[
-                        "type"
-                    ]
+                    vol.Required(
+                        k, default=self._option_default(k, v, self.options)
+                    ): self._option_schema(k, v)
                     for k, v in CONF_OPTIONS.items()
                 }
             ),

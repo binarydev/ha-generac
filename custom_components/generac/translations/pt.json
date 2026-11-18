@@ -60,6 +60,7 @@
       "user": {
         "data": {
           "binary_sensor": "Sensores binários ativados",
+          "fuel_burn_rate": "Taxa estimada de consumo de combustível (gal/h)",
           "image": "Imagem ativada",
           "scan_interval": "Intervalo de sondagem (segundos)",
           "sensor": "Sensores não binários ativados",

@@ -60,6 +60,7 @@
       "user": {
         "data": {
           "binary_sensor": "Binær sensor aktivert",
+          "fuel_burn_rate": "Estimert drivstofforbruk (gal/t)",
           "image": "Bilde aktivert",
           "scan_interval": "Avstemningsintervall i sekunder",
           "sensor": "Sensor aktivert",
