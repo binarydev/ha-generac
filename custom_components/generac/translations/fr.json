@@ -64,6 +64,7 @@
           "binary_sensor": "Capteur binaire activé",
           "button": "Boutons activés",
           "exercise_interval_days": "Intervalle d’alerte d’exercice manqué (jours, 0 pour désactiver)",
+          "fuel_burn_rate": "Consommation de carburant estimée (gal/h)",
           "image": "Image activé",
           "low_battery_threshold": "Seuil d’alerte de tension batterie faible (V)",
           "scan_interval": "Intervalle d’interrogation en secondes",

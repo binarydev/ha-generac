@@ -78,6 +78,7 @@
           "binary_sensor": "Binary sensors enabled",
           "button": "Buttons enabled",
           "exercise_interval_days": "Missed exercise alert interval (days, 0 to disable)",
+          "fuel_burn_rate": "Estimated fuel burn rate (gal/h)",
           "image": "Image enabled",
           "low_battery_threshold": "Low battery voltage alert threshold (V)",
           "scan_interval": "Cloud polling interval (seconds)",

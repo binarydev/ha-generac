@@ -7,6 +7,7 @@ so that no entity is orphaned and no ``_2`` duplicate is created.
 """
 from unittest.mock import patch
 
+import pytest
 from custom_components.generac.auth import DPoPKey
 from custom_components.generac.const import CONF_DPOP_PEM
 from custom_components.generac.const import CONF_REFRESH_TOKEN
@@ -15,6 +16,7 @@ from custom_components.generac.const import DOMAIN
 from custom_components.generac.models import Apparatus
 from custom_components.generac.models import ApparatusDetail
 from custom_components.generac.models import Item
+from custom_components.generac.models import Subscription
 from dacite import from_dict
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -81,11 +83,18 @@ HISTORICAL_SUFFIXES = {
 # Entities this change adds for the fixture payloads below.
 NEW_SUFFIXES = {
     GENERATOR_ID: {
-        "sensor": ["exercise_minutes", "hours_until_service"],
+        "sensor": ["exercise_minutes", "error_code", "hours_until_service"],
         "binary_sensor": ["missed_exercise"],
         "button": ["reset_service_timer", "boost_polling"],
     },
-    PROPANE_ID: {"sensor": ["signal_strength", "device_battery_level"]},
+    PROPANE_ID: {
+        "sensor": [
+            "signal_strength",
+            "device_battery_level",
+            "remaining_fuel",
+            "estimated_runtime",
+        ]
+    },
 }
 
 
@@ -281,12 +290,17 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
         _unique_id(GENERATOR_ID, "boost_polling"): (
             "button.generator_outage_boost_poll"
         ),
+        _unique_id(GENERATOR_ID, "error_code"): "sensor.generator_error_code",
         _unique_id(
             PROPANE_ID, "signal_strength"
         ): "sensor.propane_tank_signal_strength",
         _unique_id(PROPANE_ID, "device_battery_level"): (
             "sensor.propane_tank_device_battery_level"
         ),
+        _unique_id(PROPANE_ID, "remaining_fuel"): "sensor.propane_tank_remaining_fuel",
+        _unique_id(
+            PROPANE_ID, "estimated_runtime"
+        ): "sensor.propane_tank_estimated_runtime_remaining",
     }
     assert hass.states.get("sensor.generator_exercise_duration").state == "12.0"
     assert hass.states.get("sensor.generator_hours_until_service").state == "100.0"
@@ -295,8 +309,16 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
         hass.states.get("button.generator_reset_maintenance_timer").state == "unknown"
     )
     assert hass.states.get("button.generator_outage_boost_poll").state == "unknown"
+    assert hass.states.get("sensor.generator_error_code").state == "unknown"
     assert hass.states.get("sensor.propane_tank_signal_strength").state == "60.0"
     assert hass.states.get("sensor.propane_tank_device_battery_level").state == "80.0"
+    remaining_state = hass.states.get("sensor.propane_tank_remaining_fuel")
+    assert remaining_state.attributes["unit_of_measurement"] == "L"
+    assert float(remaining_state.state) == pytest.approx(225.0 * 3.785411784)
+    assert (
+        hass.states.get("sensor.propane_tank_estimated_runtime_remaining").state
+        == "102.3"
+    )
 
     devices = {e.unique_id: e.device_id for e in entries}
     assert (
@@ -320,8 +342,82 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
         == devices[_unique_id(GENERATOR_ID, "status")]
     )
     assert (
+        devices[_unique_id(GENERATOR_ID, "error_code")]
+        == devices[_unique_id(GENERATOR_ID, "status")]
+    )
+    assert (
         devices[_unique_id(PROPANE_ID, "device_battery_level")]
         == devices[_unique_id(PROPANE_ID, "status")]
+    )
+    assert (
+        devices[_unique_id(PROPANE_ID, "remaining_fuel")]
+        == devices[_unique_id(PROPANE_ID, "status")]
+    )
+    assert (
+        devices[_unique_id(PROPANE_ID, "estimated_runtime")]
+        == devices[_unique_id(PROPANE_ID, "status")]
+    )
+
+
+async def test_conditional_vpp_and_subscription_entities_register(hass: HomeAssistant):
+    """VPP and subscription binary sensors register cleanly when API provides them."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id=ENTRY_ID,
+        unique_id="user@example.com",
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_REFRESH_TOKEN: "rt",
+            CONF_DPOP_PEM: DPoPKey.generate().to_pem_str(),
+        },
+    )
+    entry.add_to_hass(hass)
+
+    gen = _generator()
+    gen.apparatusDetail.eCodeLabel = "E1505"
+    gen.apparatusDetail.enrolledInVpp = True
+    gen.apparatusDetail.hasActiveVppEvent = True
+    gen.apparatusDetail.subscription = Subscription(
+        type=1, status=2, isLegacy=False, isDunning=True
+    )
+
+    with patch(
+        "custom_components.generac.api.GeneracApiClient.async_get_data",
+        return_value={GENERATOR_ID: gen},
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+    by_unique_id = {
+        e.unique_id: e for e in er.async_entries_for_config_entry(registry, ENTRY_ID)
+    }
+    assert _unique_id(GENERATOR_ID, "enrolled_in_vpp") in by_unique_id
+    assert _unique_id(GENERATOR_ID, "active_vpp_event") in by_unique_id
+    assert _unique_id(GENERATOR_ID, "subscription_dunning") in by_unique_id
+    assert (
+        hass.states.get(
+            by_unique_id[_unique_id(GENERATOR_ID, "enrolled_in_vpp")].entity_id
+        ).state
+        == "on"
+    )
+    assert (
+        hass.states.get(
+            by_unique_id[_unique_id(GENERATOR_ID, "active_vpp_event")].entity_id
+        ).state
+        == "on"
+    )
+    assert (
+        hass.states.get(
+            by_unique_id[_unique_id(GENERATOR_ID, "subscription_dunning")].entity_id
+        ).state
+        == "on"
+    )
+    assert (
+        hass.states.get(
+            by_unique_id[_unique_id(GENERATOR_ID, "error_code")].entity_id
+        ).state
+        == "E1505"
     )
 
 
@@ -342,7 +438,7 @@ def test_every_entity_class_declares_its_own_stable_key():
         and issubclass(obj, GeneracEntity)
         and obj is not GeneracEntity
     ]
-    assert len(classes) == 38
+    assert len(classes) == 44
     keys = {}
     for cls in classes:
         assert "entity_key" in vars(cls), cls.__name__
