@@ -7,6 +7,7 @@ import pytest
 from custom_components.generac.auth import DPoPKey
 from custom_components.generac.auth import InvalidCredentialsError
 from custom_components.generac.auth import MfaRequiredError
+from custom_components.generac.const import CONF_ACTIVE_SCAN_INTERVAL
 from custom_components.generac.const import CONF_DPOP_PEM
 from custom_components.generac.const import CONF_PASSWORD
 from custom_components.generac.const import CONF_REFRESH_TOKEN
@@ -14,6 +15,7 @@ from custom_components.generac.const import CONF_REMEMBER_PASSWORD
 from custom_components.generac.const import CONF_SCAN_INTERVAL
 from custom_components.generac.const import CONF_TOKEN_ISSUED_AT
 from custom_components.generac.const import CONF_USERNAME
+from custom_components.generac.const import DEFAULT_ACTIVE_SCAN_INTERVAL
 from custom_components.generac.const import DOMAIN
 from homeassistant import config_entries
 from homeassistant import setup
@@ -146,6 +148,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
             "image": True,
             "button": True,
             "scan_interval": 120,
+            "active_scan_interval": 120,
             "service_interval_hours": 100,
             "exercise_interval_days": 16,
             "low_battery_threshold": 12.2,
@@ -161,7 +164,8 @@ async def test_options_flow(hass: HomeAssistant) -> None:
     assert result["step_id"] == "user"
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"binary_sensor": False}
+        result["flow_id"],
+        user_input={"binary_sensor": False, "active_scan_interval": 60},
     )
 
     assert result["type"] == "create_entry"
@@ -172,6 +176,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         "image": True,
         "button": True,
         "scan_interval": 120,
+        "active_scan_interval": 60,
         "service_interval_hours": 100,
         "exercise_interval_days": 16,
         "low_battery_threshold": 12.2,
@@ -734,7 +739,10 @@ async def test_reconfigure_unchanged_options_reloads_loaded_entry(
             CONF_REFRESH_TOKEN: "old-rt",
             CONF_DPOP_PEM: DPoPKey.generate().to_pem_str(),
         },
-        options={CONF_SCAN_INTERVAL: 900},
+        options={
+            CONF_SCAN_INTERVAL: 900,
+            CONF_ACTIVE_SCAN_INTERVAL: DEFAULT_ACTIVE_SCAN_INTERVAL,
+        },
     )
     entry.add_to_hass(hass)
 
@@ -760,6 +768,7 @@ async def test_reconfigure_unchanged_options_reloads_loaded_entry(
                 CONF_USERNAME: "user@example.com",
                 CONF_PASSWORD: "new-pw",
                 CONF_SCAN_INTERVAL: 900,
+                CONF_ACTIVE_SCAN_INTERVAL: DEFAULT_ACTIVE_SCAN_INTERVAL,
                 CONF_REMEMBER_PASSWORD: False,
             },
         )
@@ -771,3 +780,112 @@ async def test_reconfigure_unchanged_options_reloads_loaded_entry(
     assert new_coordinator is not old_coordinator
     assert new_coordinator.api._auth.refresh_token == "new-rt"
     assert new_coordinator.api._auth.pem_str == new_auth.pem_str
+
+
+async def test_reconfigure_persists_active_scan_interval_with_mfa(
+    hass: HomeAssistant,
+) -> None:
+    """Reconfigure preserves both scan_interval and active_scan_interval across MFA."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_REFRESH_TOKEN: "old-rt",
+            CONF_DPOP_PEM: DPoPKey.generate().to_pem_str(),
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    with patch("custom_components.generac.async_setup_entry", return_value=True):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": entry.entry_id},
+    )
+    login_flow = MagicMock()
+    login_flow.mfa_type = "otp"
+    login_flow.submit_mfa_code = AsyncMock(
+        return_value=_mock_auth(refresh_token="mfa-rt")
+    )
+
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(
+            side_effect=MfaRequiredError(login_flow, "otp", "https://x", "state")
+        ),
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "new-pw",
+                CONF_SCAN_INTERVAL: 600,
+                CONF_ACTIVE_SCAN_INTERVAL: 45,
+            },
+        )
+    assert result2["type"] == "form"
+    assert result2["step_id"] == "mfa"
+
+    with patch("custom_components.generac.async_setup_entry", return_value=True), patch(
+        "custom_components.generac.async_unload_entry", return_value=True
+    ):
+        result3 = await hass.config_entries.flow.async_configure(
+            result2["flow_id"], {"mfa_code": "123456"}
+        )
+        await hass.async_block_till_done()
+
+    assert result3["type"] == "abort"
+    assert result3["reason"] == "reconfigure_successful"
+    assert entry.options[CONF_SCAN_INTERVAL] == 600
+    assert entry.options[CONF_ACTIVE_SCAN_INTERVAL] == 45
+    assert entry.data[CONF_REFRESH_TOKEN] == "mfa-rt"
+
+
+async def test_reconfigure_flow_persists_active_scan_interval(
+    hass: HomeAssistant,
+) -> None:
+    """Active scan interval supplied during reconfigure ends up in entry.options."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_REFRESH_TOKEN: "old-rt",
+            CONF_DPOP_PEM: DPoPKey.generate().to_pem_str(),
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    with patch("custom_components.generac.async_setup_entry", return_value=True):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": entry.entry_id},
+    )
+    assert result["step_id"] == "reconfigure"
+
+    new_auth = _mock_auth(refresh_token="new-rt")
+    with patch(
+        "custom_components.generac.config_flow.GeneracAuth.login",
+        AsyncMock(return_value=new_auth),
+    ), patch("custom_components.generac.async_setup_entry", return_value=True), patch(
+        "custom_components.generac.async_unload_entry", return_value=True
+    ):
+        await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "new-pw",
+                CONF_SCAN_INTERVAL: 600,
+                CONF_ACTIVE_SCAN_INTERVAL: 90,
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert entry.options.get(CONF_SCAN_INTERVAL) == 600
+    assert entry.options.get(CONF_ACTIVE_SCAN_INTERVAL) == 90

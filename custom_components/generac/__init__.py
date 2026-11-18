@@ -7,8 +7,10 @@ https://github.com/binarydev/ha-generac
 import logging
 import time
 
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.core import ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.exceptions import ConfigEntryNotReady
 
@@ -22,8 +24,10 @@ from .const import CONF_PASSWORD
 from .const import CONF_REFRESH_TOKEN
 from .const import CONF_TOKEN_ISSUED_AT
 from .const import CONF_USERNAME
+from .const import DEFAULT_BOOST_DURATION_MINUTES
 from .const import DOMAIN
 from .const import PLATFORMS
+from .const import SERVICE_BOOST_POLLING
 from .const import STARTUP_MESSAGE
 from .coordinator import GeneracDataUpdateCoordinator
 from .issues import async_delete_all_entry_issues
@@ -35,6 +39,50 @@ _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 # Keys rewritten in-place during background token rotation / auto-relogin.
 _TOKEN_KEYS = frozenset({CONF_REFRESH_TOKEN, CONF_DPOP_PEM, CONF_TOKEN_ISSUED_AT})
+
+BOOST_POLLING_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            "duration_minutes", default=DEFAULT_BOOST_DURATION_MINUTES
+        ): vol.All(vol.Coerce(int), vol.Range(min=1, max=120)),
+        vol.Optional("entry_id"): str,
+    }
+)
+
+
+def _matching_coordinators(
+    hass: HomeAssistant, entry_id: str | None
+) -> list[GeneracDataUpdateCoordinator]:
+    """Return loaded coordinators matching an optional config entry ID."""
+    domain_data = hass.data.get(DOMAIN, {})
+    coordinators: list[GeneracDataUpdateCoordinator] = []
+    for key, value in domain_data.items():
+        if not isinstance(value, GeneracDataUpdateCoordinator):
+            continue
+        if entry_id is None:
+            coordinators.append(value)
+            continue
+        coord_entry_id = getattr(value._config_entry, "entry_id", None)
+        if key == entry_id or (
+            isinstance(coord_entry_id, str) and coord_entry_id == entry_id
+        ):
+            coordinators.append(value)
+    return coordinators
+
+
+async def _async_handle_boost_polling(call: ServiceCall) -> None:
+    """Handle the generac.boost_polling service call."""
+    duration_minutes: int = call.data["duration_minutes"]
+    entry_id: str | None = call.data.get("entry_id")
+    coordinators = _matching_coordinators(call.hass, entry_id)
+    if entry_id is not None and not coordinators:
+        _LOGGER.warning(
+            "No loaded Generac config entry found for entry_id=%s", entry_id
+        )
+        return
+    duration_seconds = duration_minutes * 60
+    for coordinator in coordinators:
+        await coordinator.async_trigger_boost(duration_seconds)
 
 
 def _reload_signature(entry: ConfigEntry) -> tuple[dict, dict]:
@@ -130,6 +178,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     coordinator.reload_signature = _reload_signature(entry)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    if not hass.services.has_service(DOMAIN, SERVICE_BOOST_POLLING):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_BOOST_POLLING,
+            _async_handle_boost_polling,
+            schema=BOOST_POLLING_SCHEMA,
+        )
     return True
 
 
@@ -140,6 +195,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Defensive default: if a previous reload already popped the
         # coordinator (e.g. mid-reconfigure race), don't KeyError.
         hass.data[DOMAIN].pop(entry.entry_id, None)
+        if not any(
+            isinstance(v, GeneracDataUpdateCoordinator)
+            for v in hass.data.get(DOMAIN, {}).values()
+        ) and hass.services.has_service(DOMAIN, SERVICE_BOOST_POLLING):
+            hass.services.async_remove(DOMAIN, SERVICE_BOOST_POLLING)
     return unloaded
 
 

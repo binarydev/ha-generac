@@ -83,7 +83,7 @@ NEW_SUFFIXES = {
     GENERATOR_ID: {
         "sensor": ["exercise_minutes", "hours_until_service"],
         "binary_sensor": ["missed_exercise"],
-        "button": ["reset_service_timer"],
+        "button": ["reset_service_timer", "boost_polling"],
     },
     PROPANE_ID: {"sensor": ["signal_strength", "device_battery_level"]},
 }
@@ -278,6 +278,9 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
         _unique_id(GENERATOR_ID, "reset_service_timer"): (
             "button.generator_reset_maintenance_timer"
         ),
+        _unique_id(GENERATOR_ID, "boost_polling"): (
+            "button.generator_outage_boost_poll"
+        ),
         _unique_id(
             PROPANE_ID, "signal_strength"
         ): "sensor.propane_tank_signal_strength",
@@ -291,6 +294,7 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
     assert (
         hass.states.get("button.generator_reset_maintenance_timer").state == "unknown"
     )
+    assert hass.states.get("button.generator_outage_boost_poll").state == "unknown"
     assert hass.states.get("sensor.propane_tank_signal_strength").state == "60.0"
     assert hass.states.get("sensor.propane_tank_device_battery_level").state == "80.0"
 
@@ -309,6 +313,10 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
     )
     assert (
         devices[_unique_id(GENERATOR_ID, "reset_service_timer")]
+        == devices[_unique_id(GENERATOR_ID, "status")]
+    )
+    assert (
+        devices[_unique_id(GENERATOR_ID, "boost_polling")]
         == devices[_unique_id(GENERATOR_ID, "status")]
     )
     assert (
@@ -334,7 +342,7 @@ def test_every_entity_class_declares_its_own_stable_key():
         and issubclass(obj, GeneracEntity)
         and obj is not GeneracEntity
     ]
-    assert len(classes) == 37
+    assert len(classes) == 38
     keys = {}
     for cls in classes:
         assert "entity_key" in vars(cls), cls.__name__

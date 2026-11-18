@@ -31,6 +31,10 @@ DEFAULT_NAME = DOMAIN
 # faster than this provides little benefit and risks hitting their
 # throttles.
 DEFAULT_SCAN_INTERVAL = 900
+DEFAULT_ACTIVE_SCAN_INTERVAL = 120
+ACTIVE_COOLDOWN_SECONDS = 300
+DEFAULT_BOOST_DURATION_MINUTES = 30
+SERVICE_BOOST_POLLING = "boost_polling"
 
 # Platforms
 BINARY_SENSOR = "binary_sensor"
@@ -60,6 +64,7 @@ CONF_MFA_CODE = "mfa_code"
 CONF_REFRESH_TOKEN = "refresh_token"
 CONF_DPOP_PEM = "dpop_pem"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_ACTIVE_SCAN_INTERVAL = "active_scan_interval"
 CONF_SERVICE_INTERVAL_HOURS = "service_interval_hours"
 CONF_EXERCISE_INTERVAL_DAYS = "exercise_interval_days"
 CONF_LOW_BATTERY_THRESHOLD = "low_battery_threshold"
@@ -84,6 +89,7 @@ for p in PLATFORMS:
 CONF_OPTIONS = {
     **bool_opts,
     CONF_SCAN_INTERVAL: {"type": int, "default": DEFAULT_SCAN_INTERVAL},
+    CONF_ACTIVE_SCAN_INTERVAL: {"type": int, "default": DEFAULT_ACTIVE_SCAN_INTERVAL},
     CONF_SERVICE_INTERVAL_HOURS: {
         "type": int,
         "default": DEFAULT_SERVICE_INTERVAL_HOURS,
