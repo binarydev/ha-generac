@@ -60,9 +60,13 @@
       "user": {
         "data": {
           "binary_sensor": "Capteur binaire activé",
+          "button": "Boutons activés",
+          "exercise_interval_days": "Intervalle d’alerte d’exercice manqué (jours, 0 pour désactiver)",
           "image": "Image activé",
+          "low_battery_threshold": "Seuil d’alerte de tension batterie faible (V)",
           "scan_interval": "Intervalle d’interrogation en secondes",
           "sensor": "Capteur activé",
+          "service_interval_hours": "Intervalle d’entretien (heures, 0 pour désactiver)",
           "switch": "Interrupteur activé",
           "weather": "Capteur météo activé"
         }

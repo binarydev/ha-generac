@@ -1,5 +1,4 @@
 """Sensor platform for generac."""
-import logging
 from datetime import datetime
 from typing import Type
 
@@ -10,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
 from homeassistant.const import UnitOfElectricPotential
 from homeassistant.const import UnitOfTemperature
+from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -19,6 +19,8 @@ from .const import DOMAIN
 from .coordinator import GeneracDataUpdateCoordinator
 from .entity import GeneracEntity
 from .models import Item
+from .utils import get_detail_property_value
+from .utils import safe_float as _safe_float
 
 
 async def async_setup_entry(
@@ -64,6 +66,7 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
             # Always created for generators so existing registry entries are
             # never orphaned; it reports unknown when the value is missing.
             SignalStrengthSensor,
+            HoursUntilServiceSensor,
         ]
     elif item.apparatus.type == DEVICE_TYPE_PROPANE_MONITOR:
         lst = [
@@ -117,20 +120,6 @@ def get_prop_value(props, type_num: int, default_val):
     return val
 
 
-def get_detail_property_value(item: Item, property_type: int):
-    """Return a detail property value by its Mobile Link type code."""
-    if item.apparatusDetail.properties is None:
-        return None
-    return next(
-        (
-            prop.value
-            for prop in item.apparatusDetail.properties
-            if prop.type == property_type
-        ),
-        None,
-    )
-
-
 def get_apparatus_property_value(item: Item, field: str):
     """Return a scalar field from the apparatus property payload."""
     if item.apparatus.properties is None:
@@ -143,27 +132,6 @@ def get_apparatus_property_value(item: Item, field: str):
         if attr_value is not None:
             return attr_value
     return None
-
-
-_LOGGER = logging.getLogger(__name__)
-
-
-def _safe_float(val, label: str = ""):
-    """Best-effort float conversion; return None on bad data so the
-    sensor reports ``unknown`` instead of crashing native_value."""
-    if val is None:
-        return None
-    if isinstance(val, (int, float)):
-        return float(val)
-    if isinstance(val, str) and val.strip().endswith("%"):
-        val = val.strip()[:-1].strip()
-    try:
-        return float(val)
-    except (TypeError, ValueError) as ex:
-        _LOGGER.debug(
-            "Could not convert %s sensor value %r to float: %s", label, val, ex
-        )
-        return None
 
 
 class StatusSensor(GeneracEntity, SensorEntity):
@@ -573,3 +541,30 @@ class DeviceBatteryLevelSensor(GeneracEntity, SensorEntity):
             get_apparatus_property_value(self.item, "batteryLevel"),
             "device_battery_level",
         )
+
+
+class HoursUntilServiceSensor(GeneracEntity, SensorEntity):
+    """Estimated runtime hours remaining until scheduled generator service."""
+
+    entity_key = "hours_until_service"
+    entity_label = "Hours Until Service"
+
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:wrench-clock"
+    _attr_suggested_display_precision = 1
+
+    @property
+    def native_value(self):
+        """Return remaining runtime hours until maintenance is due."""
+        return self.coordinator.hours_until_service(self.device_id)
+
+    @property
+    def extra_state_attributes(self):
+        """Include hours logged since the last maintenance baseline."""
+        attrs = dict(super().extra_state_attributes)
+        hours_since = self.coordinator.hours_since_service(self.device_id)
+        if hours_since is None or isinstance(hours_since, (int, float)):
+            attrs["hours_since_service"] = hours_since
+        return attrs

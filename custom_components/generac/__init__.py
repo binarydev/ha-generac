@@ -16,6 +16,7 @@ from .api import GeneracApiClient
 from .api import InvalidCredentialsException
 from .auth import GeneracAuth
 from .auth import InvalidGrantError
+from .blueprints import install_bundled_blueprints
 from .const import CONF_DPOP_PEM
 from .const import CONF_PASSWORD
 from .const import CONF_REFRESH_TOKEN
@@ -25,8 +26,10 @@ from .const import DOMAIN
 from .const import PLATFORMS
 from .const import STARTUP_MESSAGE
 from .coordinator import GeneracDataUpdateCoordinator
-from .issues import async_delete_token_expiry_issue
+from .issues import async_delete_all_entry_issues
+from .readiness import async_remove_readiness_store
 from .utils import async_client_session
+from .utils import entry_options
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -37,7 +40,7 @@ _TOKEN_KEYS = frozenset({CONF_REFRESH_TOKEN, CONF_DPOP_PEM, CONF_TOKEN_ISSUED_AT
 def _reload_signature(entry: ConfigEntry) -> tuple[dict, dict]:
     """Snapshot of entry options and non-token data that require a reload on change."""
     return (
-        dict(entry.options),
+        dict(entry_options(entry)),
         {k: v for k, v in entry.data.items() if k not in _TOKEN_KEYS},
     )
 
@@ -114,6 +117,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     if not coordinator.last_update_success:
         raise ConfigEntryNotReady
 
+    try:
+        await hass.async_add_executor_job(
+            install_bundled_blueprints,
+            hass.config.path("blueprints", "automation", DOMAIN),
+        )
+    except OSError as ex:
+        _LOGGER.warning("Could not install bundled Generac blueprints: %s", ex)
+
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -153,5 +164,6 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Clean up the expiry Repairs issue when the entry is deleted."""
-    async_delete_token_expiry_issue(hass, entry)
+    """Clean up Repairs issues and readiness storage when the entry is deleted."""
+    async_delete_all_entry_issues(hass, entry)
+    await async_remove_readiness_store(hass, entry)

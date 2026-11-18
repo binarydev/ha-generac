@@ -37,17 +37,20 @@ from .auth import InvalidMfaCodeError
 from .auth import MfaRequiredError
 from .auth import MfaUnsupportedError
 from .const import CONF_DPOP_PEM
+from .const import CONF_EXERCISE_INTERVAL_DAYS
 from .const import CONF_MFA_CODE
 from .const import CONF_OPTIONS
 from .const import CONF_PASSWORD
 from .const import CONF_REFRESH_TOKEN
 from .const import CONF_REMEMBER_PASSWORD
 from .const import CONF_SCAN_INTERVAL
+from .const import CONF_SERVICE_INTERVAL_HOURS
 from .const import CONF_TOKEN_ISSUED_AT
 from .const import CONF_USERNAME
 from .const import DEFAULT_SCAN_INTERVAL
 from .const import DOMAIN
 from .utils import async_client_session
+from .utils import entry_options
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -242,7 +245,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         default_email = entry.data.get(CONF_USERNAME, "") if entry else ""
         default_scan_interval = (
-            (entry.options or {}).get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            entry_options(entry).get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
             if entry
             else DEFAULT_SCAN_INTERVAL
         )
@@ -277,7 +280,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # Persist polling interval into entry.options so the coordinator
         # picks it up the same way the OptionsFlow does.
         new_options = {
-            **(entry.options or {}),
+            **entry_options(entry),
             CONF_SCAN_INTERVAL: int(self._pending_scan_interval),
         }
         # Update the stored data/options. When the entry is already loaded the
@@ -459,11 +462,20 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return GeneracOptionsFlowHandler(config_entry)
 
 
+def _option_validator(key: str, option_type: type):
+    """Build a Voluptuous validator for an integration option."""
+    if option_type is float:
+        return vol.All(vol.Coerce(float), vol.Range(min=0.0))
+    if key in (CONF_SERVICE_INTERVAL_HOURS, CONF_EXERCISE_INTERVAL_DAYS):
+        return vol.All(int, vol.Range(min=0))
+    return option_type
+
+
 class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
     """Config flow options handler for generac."""
 
     def __init__(self, config_entry):
-        self.options = dict(config_entry.options)
+        self.options = dict(entry_options(config_entry))
 
     async def async_step_init(self, user_input=None):  # pylint: disable=unused-argument
         return await self.async_step_user()
@@ -477,9 +489,9 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(k, default=self.options.get(k, v["default"])): v[
-                        "type"
-                    ]
+                    vol.Required(
+                        k, default=self.options.get(k, v["default"])
+                    ): _option_validator(k, v["type"])
                     for k, v in CONF_OPTIONS.items()
                 }
             ),

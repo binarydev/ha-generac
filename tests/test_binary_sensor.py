@@ -4,7 +4,11 @@ from unittest.mock import MagicMock
 from custom_components.generac.binary_sensor import GeneracConnectedSensor
 from custom_components.generac.binary_sensor import GeneracConnectingSensor
 from custom_components.generac.binary_sensor import GeneracMaintenanceAlertSensor
+from custom_components.generac.binary_sensor import GeneracMissedExerciseSensor
 from custom_components.generac.binary_sensor import GeneracWarningSensor
+from custom_components.generac.binary_sensor import sensors
+from custom_components.generac.const import DEVICE_TYPE_GENERATOR
+from custom_components.generac.const import DEVICE_TYPE_PROPANE_MONITOR
 from custom_components.generac.models import Apparatus
 from custom_components.generac.models import ApparatusDetail
 from custom_components.generac.models import Item
@@ -97,4 +101,34 @@ async def test_warning_sensor(hass):
     # Test when warning is not active
     item = get_mock_item(False, False, False, False)
     sensor = GeneracWarningSensor(coordinator, entry, "12345", item)
+    assert sensor.is_on is False
+
+
+async def test_missed_exercise_sensor(hass):
+    """Test the missed exercise binary sensor and generator-only selection."""
+    coordinator = MagicMock()
+    coordinator.is_missed_exercise.return_value = True
+    entry = MagicMock()
+    entry.entry_id = "entry"
+
+    gen = Item(
+        apparatus=Apparatus(type=DEVICE_TYPE_GENERATOR),
+        apparatusDetail=ApparatusDetail(),
+    )
+    propane = Item(
+        apparatus=Apparatus(type=DEVICE_TYPE_PROPANE_MONITOR),
+        apparatusDetail=ApparatusDetail(),
+    )
+
+    assert GeneracMissedExerciseSensor in sensors(gen)
+    assert GeneracMissedExerciseSensor not in sensors(propane)
+    assert GeneracMissedExerciseSensor not in sensors()
+
+    sensor = GeneracMissedExerciseSensor(coordinator, entry, "12345", gen)
+    assert sensor.entity_key == "missed_exercise"
+    assert sensor.name == "Missed Exercise"
+    assert sensor.device_class == "problem"
+    assert sensor.is_on is True
+
+    coordinator.is_missed_exercise.return_value = False
     assert sensor.is_on is False

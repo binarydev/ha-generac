@@ -1,4 +1,6 @@
 """Binary sensor platform for generac."""
+from __future__ import annotations
+
 from typing import Type
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
@@ -7,9 +9,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .const import DEVICE_TYPE_GENERATOR
 from .const import DOMAIN
 from .coordinator import GeneracDataUpdateCoordinator
 from .entity import GeneracEntity
+from .models import Item
 
 
 async def async_setup_entry(
@@ -22,17 +26,21 @@ async def async_setup_entry(
         async_add_entities(
             sensor(coordinator, entry, device_id, item)
             for device_id, item in data.items()
-            for sensor in sensors()
+            for sensor in sensors(item)
         )
 
 
-def sensors() -> Type[GeneracEntity]:
-    return [
+def sensors(item: Item | None = None) -> list[Type[GeneracEntity]]:
+    """Return binary sensor entity classes applicable to an item."""
+    lst: list[Type[GeneracEntity]] = [
         GeneracConnectedSensor,
         GeneracConnectingSensor,
         GeneracMaintenanceAlertSensor,
         GeneracWarningSensor,
     ]
+    if item is not None and item.apparatus.type == DEVICE_TYPE_GENERATOR:
+        lst.append(GeneracMissedExerciseSensor)
+    return lst
 
 
 class GeneracConnectedSensor(GeneracEntity, BinarySensorEntity):
@@ -101,3 +109,17 @@ class GeneracWarningSensor(GeneracEntity, BinarySensorEntity):
     def is_on(self):
         """Return true if the binary_sensor is on."""
         return self.aparatus_detail.showWarning
+
+
+class GeneracMissedExerciseSensor(GeneracEntity, BinarySensorEntity):
+    """Binary sensor indicating whether scheduled exercise appears overdue."""
+
+    entity_key = "missed_exercise"
+    entity_label = "Missed Exercise"
+
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if the generator has missed its exercise window."""
+        return bool(self.coordinator.is_missed_exercise(self.device_id))

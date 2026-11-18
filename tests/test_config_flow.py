@@ -144,7 +144,11 @@ async def test_options_flow(hass: HomeAssistant) -> None:
             "sensor": True,
             "weather": True,
             "image": True,
+            "button": True,
             "scan_interval": 120,
+            "service_interval_hours": 100,
+            "exercise_interval_days": 16,
+            "low_battery_threshold": 12.2,
         },
     )
     entry.add_to_hass(hass)
@@ -166,8 +170,40 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         "sensor": True,
         "weather": True,
         "image": True,
+        "button": True,
         "scan_interval": 120,
+        "service_interval_hours": 100,
+        "exercise_interval_days": 16,
+        "low_battery_threshold": 12.2,
     }
+
+
+@pytest.mark.asyncio
+async def test_options_flow_readiness_thresholds(hass: HomeAssistant) -> None:
+    """Test configuring readiness thresholds and disabling alerts with 0."""
+    from custom_components.generac.const import CONF_EXERCISE_INTERVAL_DAYS
+    from custom_components.generac.const import CONF_LOW_BATTERY_THRESHOLD
+    from custom_components.generac.const import CONF_SERVICE_INTERVAL_HOURS
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == "form"
+
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_SERVICE_INTERVAL_HOURS: 50,
+            CONF_EXERCISE_INTERVAL_DAYS: 0,
+            CONF_LOW_BATTERY_THRESHOLD: 12,
+        },
+    )
+    assert result2["type"] == "create_entry"
+    assert entry.options[CONF_SERVICE_INTERVAL_HOURS] == 50
+    assert entry.options[CONF_EXERCISE_INTERVAL_DAYS] == 0
+    assert entry.options[CONF_LOW_BATTERY_THRESHOLD] == 12.0
+    assert isinstance(entry.options[CONF_LOW_BATTERY_THRESHOLD], float)
 
 
 @pytest.mark.asyncio

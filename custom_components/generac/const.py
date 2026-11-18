@@ -37,7 +37,15 @@ BINARY_SENSOR = "binary_sensor"
 SENSOR = "sensor"
 WEATHER = "weather"
 IMAGE = "image"
-PLATFORMS = [BINARY_SENSOR, SENSOR, WEATHER, IMAGE]
+BUTTON = "button"
+PLATFORMS = [BINARY_SENSOR, SENSOR, WEATHER, IMAGE, BUTTON]
+
+# Readiness & maintenance defaults
+DEFAULT_SERVICE_INTERVAL_HOURS = 100
+# 16 days covers weekly & biweekly exercise schedules with a grace buffer;
+# 0 disables missed-exercise alerts.
+DEFAULT_EXERCISE_INTERVAL_DAYS = 16
+DEFAULT_LOW_BATTERY_THRESHOLD = 12.2
 
 # Configuration labels
 CONF_ENABLED = "enabled"
@@ -52,6 +60,9 @@ CONF_MFA_CODE = "mfa_code"
 CONF_REFRESH_TOKEN = "refresh_token"
 CONF_DPOP_PEM = "dpop_pem"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_SERVICE_INTERVAL_HOURS = "service_interval_hours"
+CONF_EXERCISE_INTERVAL_DAYS = "exercise_interval_days"
+CONF_LOW_BATTERY_THRESHOLD = "low_battery_threshold"
 # Opt-in: keep the password in entry.data so an expired refresh token can be
 # replaced by a silent re-login instead of a manual reauth.
 CONF_REMEMBER_PASSWORD = "remember_password"
@@ -73,6 +84,18 @@ for p in PLATFORMS:
 CONF_OPTIONS = {
     **bool_opts,
     CONF_SCAN_INTERVAL: {"type": int, "default": DEFAULT_SCAN_INTERVAL},
+    CONF_SERVICE_INTERVAL_HOURS: {
+        "type": int,
+        "default": DEFAULT_SERVICE_INTERVAL_HOURS,
+    },
+    CONF_EXERCISE_INTERVAL_DAYS: {
+        "type": int,
+        "default": DEFAULT_EXERCISE_INTERVAL_DAYS,
+    },
+    CONF_LOW_BATTERY_THRESHOLD: {
+        "type": float,
+        "default": DEFAULT_LOW_BATTERY_THRESHOLD,
+    },
 }
 
 STARTUP_MESSAGE = f"""

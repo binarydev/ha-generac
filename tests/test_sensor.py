@@ -23,6 +23,7 @@ from custom_components.generac.sensor import DeviceTypeSensor
 from custom_components.generac.sensor import ExerciseMinutesSensor
 from custom_components.generac.sensor import FuelLevelSensor
 from custom_components.generac.sensor import FuelTypeSensor
+from custom_components.generac.sensor import HoursUntilServiceSensor
 from custom_components.generac.sensor import LastReadingDateSensor
 from custom_components.generac.sensor import LastSeenSensor
 from custom_components.generac.sensor import ModelNumberSensor
@@ -422,3 +423,27 @@ def test_friendly_names_and_stable_unique_ids():
         assert sensor.has_entity_name is True
         assert sensor.name == label
         assert sensor.unique_id == f"entry_9_generac_9_{suffix}"
+
+
+async def test_hours_until_service_sensor(hass):
+    """HoursUntilServiceSensor reports remaining hours and selection is generator-only."""
+    coordinator = MagicMock()
+    coordinator.hours_until_service.return_value = 72.5
+    coordinator.hours_since_service.return_value = 27.5
+    entry = MagicMock()
+    entry.entry_id = "entry"
+
+    gen = get_mock_item(DEVICE_TYPE_GENERATOR, 1)
+    propane = get_mock_item(DEVICE_TYPE_PROPANE_MONITOR, 1)
+    assert HoursUntilServiceSensor in sensors(gen)
+    assert HoursUntilServiceSensor not in sensors(propane)
+
+    sensor = HoursUntilServiceSensor(coordinator, entry, "12345", gen)
+    assert sensor.entity_key == "hours_until_service"
+    assert sensor.name == "Hours Until Service"
+    assert sensor.device_class == "duration"
+    assert sensor.native_unit_of_measurement == "h"
+    assert sensor.state_class == "measurement"
+    assert sensor.icon == "mdi:wrench-clock"
+    assert sensor.native_value == 72.5
+    assert sensor.extra_state_attributes["hours_since_service"] == 27.5

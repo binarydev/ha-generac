@@ -1,3 +1,6 @@
+"""DataUpdateCoordinator for the Generac MobileLink integration."""
+from __future__ import annotations
+
 import logging
 from datetime import timedelta
 
@@ -14,8 +17,12 @@ from .auth import InvalidGrantError
 from .const import CONF_SCAN_INTERVAL
 from .const import DEFAULT_SCAN_INTERVAL
 from .const import DOMAIN
+from .issues import async_update_device_health_issues
 from .issues import async_update_token_expiry_issue
 from .models import Item
+from .readiness import get_run_time
+from .readiness import ReadinessTracker
+from .utils import entry_options
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -34,8 +41,11 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         self.reload_signature: tuple[dict, dict] | None = None
         self.persisted_credentials: tuple[str | None, str | None] | None = None
         self.pending_credential_updates: int = 0
+        self.readiness = ReadinessTracker(hass, config_entry)
         scan_interval = timedelta(
-            seconds=config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            seconds=entry_options(config_entry).get(
+                CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+            )
         )
         super().__init__(
             hass,
@@ -45,6 +55,30 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
             config_entry=config_entry,
         )
 
+    def hours_since_service(self, device_id: str) -> float | None:
+        """Return runtime hours elapsed since the generator's maintenance baseline."""
+        return self.readiness.hours_since_service(device_id)
+
+    def hours_until_service(self, device_id: str) -> float | None:
+        """Return estimated runtime hours remaining until scheduled maintenance."""
+        return self.readiness.hours_until_service(device_id)
+
+    def is_missed_exercise(self, device_id: str, now: float | None = None) -> bool:
+        """Return True if the generator's scheduled exercise window appears missed."""
+        return self.readiness.is_missed_exercise(device_id, now=now)
+
+    async def async_reset_service_timer(self, device_id: str) -> None:
+        """Reset maintenance baseline to current run time, re-evaluate alerts, and notify."""
+        item = (self.data or {}).get(device_id) if isinstance(self.data, dict) else None
+        current_run_time = get_run_time(item) if isinstance(item, Item) else None
+        await self.readiness.async_reset_service_timer(
+            device_id, current_run_time=current_run_time
+        )
+        async_update_device_health_issues(
+            self.hass, self._config_entry, self.data, self.readiness
+        )
+        self.async_update_listeners()
+
     async def _async_update_data(self):
         """Update data via library."""
         try:
@@ -52,7 +86,13 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
             items = await self.api.async_get_data()
             self.is_online = items is not None
             _LOGGER.info("Generac poll OK: %d device(s)", len(items) if items else 0)
+            await self.readiness.async_load()
+            if isinstance(items, dict):
+                await self.readiness.async_update_from_items(items)
             async_update_token_expiry_issue(self.hass, self._config_entry)
+            async_update_device_health_issues(
+                self.hass, self._config_entry, items, self.readiness
+            )
             return items
         except (InvalidCredentialsException, InvalidGrantError) as ex:
             # Refresh token / login no longer valid — trigger HA reauth flow.
