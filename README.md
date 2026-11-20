@@ -9,16 +9,16 @@
 
 **Custom Generac integration component with support for generators and propane tank monitors. It will set up the following platforms.**
 
-| Platform        | Entities created for each generator                                                                                                                                                                                                                                                                      |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`, `missed_exercise`                                                                                                                                                                                                               |
-| `button`        | `reset_service_timer`, `boost_polling`                                                                                                                                                                                                                                                                   |
-| `sensor`        | `status`, `run_time`, `protection_time`, `activation_date`, `last_seen`, `connection_time`, `battery_voltage`, `device_type`, `dealer_email`, `dealer_name`, `dealer_phone`, `address`, `status_text`, `status_label`, `serial_number`, `model_number`, `device_ssid`, `panel_id`, `hours_until_service` |
+| Platform        | Entities created for each generator                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`, `missed_exercise`, plus conditional `enrolled_in_vpp`, `active_vpp_event`, `subscription_dunning`                                                                                                                                                                                                                                            |
+| `button`        | `reset_service_timer`, `boost_polling`                                                                                                                                                                                                                                                                                                                                                                                |
+| `sensor`        | `status`, `run_time`, `protection_time`, `activation_date`, `last_seen`, `connection_time`, `battery_voltage`, `device_type`, `dealer_email`, `dealer_name`, `dealer_phone`, `address`, `status_text`, `status_label`, `error_code`, `serial_number`, `model_number`, `device_ssid`, `panel_id`, `signal_strength`, `hours_until_service`, optional `exercise_minutes`, `outdoor_temperature`, `device_battery_level` |
 
-| Platform        | Entities created for each propane tank monitor                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`                                                        |
-| `sensor`        | `status`, `capacity`, `fuel_level`, `fuel_type`, `orientation`, `last_reading_date`, `battery_level`, `address`, `device_type` |
+| Platform        | Entities created for each propane tank monitor                                                                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `binary_sensor` | `is_connected`, `is_connecting`, `has_maintenance_alert`, `has_warning`, plus conditional `subscription_dunning`                                                                                                                                 |
+| `sensor`        | `status`, `capacity`, `fuel_level`, `remaining_fuel`, `estimated_runtime`, `fuel_type`, `orientation`, `last_reading_date`, `battery_level`, `address`, `device_type`, optional `signal_strength`, `device_battery_level`, `outdoor_temperature` |
 
 ![example][exampleimg]
 
@@ -66,6 +66,12 @@ Click this button to skip steps 1 and 2 below: [![Open your Home Assistant insta
 
 ## Configuration is done in the UI
 
+### Options (`Configure`)
+
+Open **Settings → Devices & services → Generac MobileLink → Configure** to adjust enabled platforms, polling intervals, readiness thresholds, and fuel autonomy calculation:
+
+- **Estimated fuel burn rate (gal/h)** (`fuel_burn_rate`, default `2.2` gal/h LP at typical 50% load): Used by the propane monitor `Estimated Runtime Remaining` (`estimated_runtime`) sensor to convert `Remaining Fuel` (`remaining_fuel`, in gallons) into hours of generator runtime remaining (`remaining_fuel / fuel_burn_rate`).
+
 ### Adaptive Polling & Outage Boost
 
 To stay gentle on Generac's rate-limited cloud API during normal standby while reacting quickly during exercises, outages, and warnings, polling adapts automatically between two configurable intervals (both clamped to at least `10` seconds):
@@ -79,6 +85,12 @@ You can also trigger fast polling manually (for example, from an automation trig
 
 - **Outage Boost Poll button (`button.<device>_outage_boost_poll`)**: Created for each generator; pressing it immediately refreshes data and enables boost polling for `30` minutes.
 - **`generac.boost_polling` action (service)**: Switches loaded entries into boost polling and triggers an immediate refresh. Accepts optional `duration_minutes` (`1`–`120`, default `30`) and optional `entry_id` (targets all loaded Generac entries if omitted).
+
+### Telemetry, Long-Term Statistics & Diagnostics
+
+- **Long-Term Statistics (LTS)**: Operational numeric sensors expose Home Assistant `state_class` (`total_increasing` on `run_time` and `protection_time`; `measurement` on `battery_voltage`, `exercise_minutes`, `outdoor_temperature`, `capacity`, `fuel_level`, `remaining_fuel`, `estimated_runtime`, `signal_strength`, `device_battery_level`, and `hours_until_service`) for history graphs and long-term recorder statistics.
+- **Fault, VPP & Subscription Telemetry**: Generators expose active fault codes via `Error Code` (`error_code`), and—when present in the MobileLink payload—Virtual Power Plant status (`enrolled_in_vpp`, `active_vpp_event`) and subscription billing alerts (`subscription_dunning`).
+- **Diagnostic Categorization**: Static metadata and diagnostic entities (serial/model/panel ID, device SSID/type, address, dealer contact info, activation/last-seen/connection timestamps, fuel type, tank orientation, signal strength, VPP enrollment, and subscription billing alert) are grouped under Home Assistant's **Diagnostic** entity category to keep primary dashboards uncluttered.
 
 ### Readiness Tracking, Maintenance Timer & Repairs Alerts
 

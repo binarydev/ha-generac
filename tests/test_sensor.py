@@ -1,7 +1,9 @@
 """Test the Generac sensor platform."""
+from types import MappingProxyType
 from unittest.mock import MagicMock
 
 import pytest
+from custom_components.generac.const import CONF_FUEL_BURN_RATE
 from custom_components.generac.const import DEVICE_TYPE_GENERATOR
 from custom_components.generac.const import DEVICE_TYPE_PROPANE_MONITOR
 from custom_components.generac.models import Apparatus
@@ -20,6 +22,8 @@ from custom_components.generac.sensor import DealerPhoneSensor
 from custom_components.generac.sensor import DeviceBatteryLevelSensor
 from custom_components.generac.sensor import DeviceSsidSensor
 from custom_components.generac.sensor import DeviceTypeSensor
+from custom_components.generac.sensor import ErrorCodeSensor
+from custom_components.generac.sensor import EstimatedRuntimeSensor
 from custom_components.generac.sensor import ExerciseMinutesSensor
 from custom_components.generac.sensor import FuelLevelSensor
 from custom_components.generac.sensor import FuelTypeSensor
@@ -31,6 +35,7 @@ from custom_components.generac.sensor import OrientationSensor
 from custom_components.generac.sensor import OutdoorTemperatureSensor
 from custom_components.generac.sensor import PanelIDSensor
 from custom_components.generac.sensor import ProtectionTimeSensor
+from custom_components.generac.sensor import RemainingFuelSensor
 from custom_components.generac.sensor import RunTimeSensor
 from custom_components.generac.sensor import sensors
 from custom_components.generac.sensor import SerialNumberSensor
@@ -38,6 +43,11 @@ from custom_components.generac.sensor import SignalStrengthSensor
 from custom_components.generac.sensor import StatusLabelSensor
 from custom_components.generac.sensor import StatusSensor
 from custom_components.generac.sensor import StatusTextSensor
+from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.components.sensor.const import SensorStateClass
+from homeassistant.const import EntityCategory
+from homeassistant.const import UnitOfTime
+from homeassistant.const import UnitOfVolume
 
 
 def get_mock_item(
@@ -380,6 +390,7 @@ def test_sensor_selection_generator():
     item.apparatus.properties = None
     selected = sensors(item)
     assert SignalStrengthSensor in selected
+    assert ErrorCodeSensor in selected
     assert DeviceBatteryLevelSensor not in selected
     assert ExerciseMinutesSensor not in selected
 
@@ -387,6 +398,7 @@ def test_sensor_selection_generator():
     item.apparatusDetail.properties.append(MagicMock(type=95, value=15))
     selected = sensors(item)
     assert selected.count(SignalStrengthSensor) == 1
+    assert ErrorCodeSensor in selected
     assert DeviceBatteryLevelSensor in selected
     assert ExerciseMinutesSensor in selected
 
@@ -397,6 +409,9 @@ def test_sensor_selection_propane_monitor():
     item.apparatusDetail.properties = None
     assert SignalStrengthSensor not in sensors(item)
     assert DeviceBatteryLevelSensor not in sensors(item)
+    assert RemainingFuelSensor in sensors(item)
+    assert EstimatedRuntimeSensor in sensors(item)
+    assert ErrorCodeSensor not in sensors(item)
 
     item = _with_apparatus_value(item, signalStrength="60", batteryLevel="80%")
     selected = sensors(item)
@@ -404,6 +419,8 @@ def test_sensor_selection_propane_monitor():
     assert DeviceBatteryLevelSensor in selected
     assert ExerciseMinutesSensor not in selected
     assert BatteryLevelSensor in selected
+    assert RemainingFuelSensor in selected
+    assert EstimatedRuntimeSensor in selected
 
 
 def test_friendly_names_and_stable_unique_ids():
@@ -417,6 +434,12 @@ def test_friendly_names_and_stable_unique_ids():
         PanelIDSensor: ("Panel ID", "panel_id"),
         RunTimeSensor: ("Run Time", "run_time"),
         DeviceBatteryLevelSensor: ("Device Battery Level", "device_battery_level"),
+        ErrorCodeSensor: ("Error Code", "error_code"),
+        RemainingFuelSensor: ("Remaining Fuel", "remaining_fuel"),
+        EstimatedRuntimeSensor: (
+            "Estimated Runtime Remaining",
+            "estimated_runtime",
+        ),
     }
     for cls, (label, suffix) in cases.items():
         sensor = cls(MagicMock(), entry, "9", item)
@@ -447,3 +470,186 @@ async def test_hours_until_service_sensor(hass):
     assert sensor.icon == "mdi:wrench-clock"
     assert sensor.native_value == 72.5
     assert sensor.extra_state_attributes["hours_since_service"] == 27.5
+
+
+def test_long_term_statistics_state_classes_and_capacity():
+    """LTS sensors expose expected state_class, unit, and device_class."""
+    entry = MagicMock()
+    item = get_mock_item(
+        DEVICE_TYPE_GENERATOR,
+        1,
+        outdoor_temperature=68.5,
+        outdoor_temperature_unit="F",
+    )
+    item.apparatusDetail.properties.append(MagicMock(type=95, value=10))
+    propane = get_mock_item(
+        DEVICE_TYPE_PROPANE_MONITOR, 1, capacity="500", fuel_level=40
+    )
+
+    assert (
+        RunTimeSensor(MagicMock(), entry, "1", item).state_class
+        == SensorStateClass.TOTAL_INCREASING
+    )
+    assert (
+        ProtectionTimeSensor(MagicMock(), entry, "1", item).state_class
+        == SensorStateClass.TOTAL_INCREASING
+    )
+
+    measurement_cases = [
+        (BatteryVoltageSensor, item),
+        (ExerciseMinutesSensor, item),
+        (OutdoorTemperatureSensor, item),
+        (SignalStrengthSensor, item),
+        (DeviceBatteryLevelSensor, item),
+        (CapacitySensor, propane),
+        (FuelLevelSensor, propane),
+        (RemainingFuelSensor, propane),
+        (EstimatedRuntimeSensor, propane),
+    ]
+    for cls, dev_item in measurement_cases:
+        entity = cls(MagicMock(), entry, "1", dev_item)
+        assert entity.state_class == SensorStateClass.MEASUREMENT, cls.__name__
+
+    cap = CapacitySensor(MagicMock(), entry, "1", propane)
+    assert cap.device_class == SensorDeviceClass.VOLUME_STORAGE
+    assert cap.native_unit_of_measurement == UnitOfVolume.GALLONS
+    assert cap.native_value == 500.0
+
+    propane_bad = get_mock_item(DEVICE_TYPE_PROPANE_MONITOR, 1, capacity="bad")
+    assert CapacitySensor(MagicMock(), entry, "1", propane_bad).native_value is None
+    propane_none = get_mock_item(DEVICE_TYPE_PROPANE_MONITOR, 1, capacity=None)
+    assert CapacitySensor(MagicMock(), entry, "1", propane_none).native_value is None
+
+
+def test_entity_categories_diagnostic_vs_primary():
+    """Static metadata sensors are diagnostic; operational sensors remain primary."""
+    entry = MagicMock()
+    item = get_mock_item(DEVICE_TYPE_GENERATOR, 1, outdoor_temperature=70.0)
+
+    diagnostic_classes = [
+        DeviceTypeSensor,
+        ActivationDateSensor,
+        LastSeenSensor,
+        ConnectionTimeSensor,
+        SerialNumberSensor,
+        ModelNumberSensor,
+        DeviceSsidSensor,
+        AddressSensor,
+        DealerNameSensor,
+        DealerEmailSensor,
+        DealerPhoneSensor,
+        PanelIDSensor,
+        FuelTypeSensor,
+        OrientationSensor,
+        SignalStrengthSensor,
+    ]
+    for cls in diagnostic_classes:
+        entity = cls(MagicMock(), entry, "1", item)
+        assert entity.entity_category == EntityCategory.DIAGNOSTIC, cls.__name__
+
+    primary_classes = [
+        StatusSensor,
+        StatusLabelSensor,
+        StatusTextSensor,
+        ErrorCodeSensor,
+        RunTimeSensor,
+        ProtectionTimeSensor,
+        BatteryVoltageSensor,
+        ExerciseMinutesSensor,
+        OutdoorTemperatureSensor,
+        CapacitySensor,
+        FuelLevelSensor,
+        RemainingFuelSensor,
+        EstimatedRuntimeSensor,
+        BatteryLevelSensor,
+        LastReadingDateSensor,
+        DeviceBatteryLevelSensor,
+        HoursUntilServiceSensor,
+    ]
+    for cls in primary_classes:
+        entity = cls(MagicMock(), entry, "1", item)
+        assert entity.entity_category is None, cls.__name__
+
+
+def test_remaining_fuel_and_estimated_runtime():
+    """Propane remaining gallons and runtime handle options and edge cases."""
+    entry = MagicMock()  # entry.options is a MagicMock (non-Mapping) -> default 2.2
+    item = get_mock_item(DEVICE_TYPE_PROPANE_MONITOR, 1, capacity=500, fuel_level="45%")
+
+    rem = RemainingFuelSensor(MagicMock(), entry, "1", item)
+    assert rem.device_class == SensorDeviceClass.VOLUME_STORAGE
+    assert rem.native_unit_of_measurement == UnitOfVolume.GALLONS
+    assert rem.state_class == SensorStateClass.MEASUREMENT
+    assert rem.suggested_display_precision == 1
+    assert rem.icon == "mdi:propane-tank-outline"
+    assert rem.native_value == 225.0
+
+    est = EstimatedRuntimeSensor(MagicMock(), entry, "1", item)
+    assert est.device_class == SensorDeviceClass.DURATION
+    assert est.native_unit_of_measurement == UnitOfTime.HOURS
+    assert est.state_class == SensorStateClass.MEASUREMENT
+    assert est.suggested_display_precision == 1
+    assert est.icon == "mdi:timer-sand"
+    assert est.native_value == 102.3
+
+    # MappingProxyType and dict override
+    entry.options = MappingProxyType({CONF_FUEL_BURN_RATE: 3.0})
+    assert est.native_value == 75.0
+
+    # Zero / negative / malformed / bool options fall back to 2.2
+    for invalid_opt in (0, -2.5, "invalid", True, float("nan"), None):
+        entry.options = {CONF_FUEL_BURN_RATE: invalid_opt}
+        assert est.native_value == 102.3
+
+    # Zero fuel level still produces 0.0 gal and 0.0 h when capacity > 0
+    empty_tank = get_mock_item(
+        DEVICE_TYPE_PROPANE_MONITOR, 1, capacity=500, fuel_level=0
+    )
+    assert RemainingFuelSensor(MagicMock(), entry, "1", empty_tank).native_value == 0.0
+    assert (
+        EstimatedRuntimeSensor(MagicMock(), entry, "1", empty_tank).native_value == 0.0
+    )
+
+    # Invalid/missing capacity or fuel level returns None
+    for cap, lvl in [
+        (0, 50),
+        (-100, 50),
+        (None, 50),
+        ("N/A", 50),
+        (500, None),
+        (500, -1),
+        (500, "bad"),
+        (500, True),
+        (500, float("inf")),
+    ]:
+        bad_item = get_mock_item(
+            DEVICE_TYPE_PROPANE_MONITOR, 1, capacity=cap, fuel_level=lvl
+        )
+        assert (
+            RemainingFuelSensor(MagicMock(), entry, "1", bad_item).native_value is None
+        )
+        assert (
+            EstimatedRuntimeSensor(MagicMock(), entry, "1", bad_item).native_value
+            is None
+        )
+
+    # Missing tuProperties returns None
+    item.apparatusDetail.tuProperties = None
+    assert rem.native_value is None
+    assert est.native_value is None
+
+
+def test_error_code_sensor():
+    """ErrorCodeSensor strips non-empty eCodeLabel and returns None otherwise."""
+    entry = MagicMock()
+    item = get_mock_item(DEVICE_TYPE_GENERATOR, 1)
+    sensor = ErrorCodeSensor(MagicMock(), entry, "1", item)
+    assert sensor.icon == "mdi:alert-octagon-outline"
+    assert sensor.native_value is None
+
+    item.apparatusDetail.eCodeLabel = "  E1505  "
+    assert sensor.native_value == "E1505"
+
+    for empty_val in ("", "   ", None, 123):
+        item.apparatusDetail.eCodeLabel = empty_val
+        assert sensor.native_value is None

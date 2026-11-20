@@ -64,6 +64,7 @@
           "binary_sensor": "Binær sensor aktivert",
           "button": "Knapper aktivert",
           "exercise_interval_days": "Varselintervall for uteblitt testkjøring (dager, 0 for å deaktivere)",
+          "fuel_burn_rate": "Estimert drivstofforbruk (gal/t)",
           "image": "Bilde aktivert",
           "low_battery_threshold": "Terskel for varsel om lav batterispenning (V)",
           "scan_interval": "Avstemningsintervall i sekunder",

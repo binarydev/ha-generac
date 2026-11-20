@@ -34,6 +34,7 @@ DEFAULT_SCAN_INTERVAL = 900
 DEFAULT_ACTIVE_SCAN_INTERVAL = 120
 ACTIVE_COOLDOWN_SECONDS = 300
 DEFAULT_BOOST_DURATION_MINUTES = 30
+DEFAULT_FUEL_BURN_RATE = 2.2
 SERVICE_BOOST_POLLING = "boost_polling"
 
 # Platforms
@@ -65,6 +66,7 @@ CONF_REFRESH_TOKEN = "refresh_token"
 CONF_DPOP_PEM = "dpop_pem"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_ACTIVE_SCAN_INTERVAL = "active_scan_interval"
+CONF_FUEL_BURN_RATE = "fuel_burn_rate"
 CONF_SERVICE_INTERVAL_HOURS = "service_interval_hours"
 CONF_EXERCISE_INTERVAL_DAYS = "exercise_interval_days"
 CONF_LOW_BATTERY_THRESHOLD = "low_battery_threshold"
@@ -90,6 +92,7 @@ CONF_OPTIONS = {
     **bool_opts,
     CONF_SCAN_INTERVAL: {"type": int, "default": DEFAULT_SCAN_INTERVAL},
     CONF_ACTIVE_SCAN_INTERVAL: {"type": int, "default": DEFAULT_ACTIVE_SCAN_INTERVAL},
+    CONF_FUEL_BURN_RATE: {"type": float, "default": DEFAULT_FUEL_BURN_RATE},
     CONF_SERVICE_INTERVAL_HOURS: {
         "type": int,
         "default": DEFAULT_SERVICE_INTERVAL_HOURS,

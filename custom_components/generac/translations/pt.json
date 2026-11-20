@@ -64,6 +64,7 @@
           "binary_sensor": "Sensores binários ativados",
           "button": "Botões ativados",
           "exercise_interval_days": "Intervalo de alerta de exercício em falta (dias, 0 para desativar)",
+          "fuel_burn_rate": "Taxa estimada de consumo de combustível (gal/h)",
           "image": "Imagem ativada",
           "low_battery_threshold": "Limite de alerta de tensão baixa da bateria (V)",
           "scan_interval": "Intervalo de sondagem (segundos)",
