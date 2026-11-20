@@ -1,7 +1,10 @@
 """Test generac setup process."""
+from pathlib import Path
+from unittest.mock import AsyncMock
 from unittest.mock import patch
 
 import pytest
+import voluptuous as vol
 from custom_components.generac import async_reload_entry
 from custom_components.generac import async_setup_entry
 from custom_components.generac import async_unload_entry
@@ -12,11 +15,15 @@ from custom_components.generac.const import CONF_PASSWORD
 from custom_components.generac.const import CONF_REFRESH_TOKEN
 from custom_components.generac.const import CONF_TOKEN_ISSUED_AT
 from custom_components.generac.const import CONF_USERNAME
+from custom_components.generac.const import DEFAULT_BOOST_DURATION_MINUTES
 from custom_components.generac.const import DOMAIN
+from custom_components.generac.const import SERVICE_BOOST_POLLING
 from custom_components.generac.coordinator import GeneracDataUpdateCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import service as ha_service
+from homeassistant.util.yaml import load_yaml_dict
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 
@@ -321,8 +328,6 @@ async def test_setup_entry_installs_bundled_blueprints(
     hass: HomeAssistant, bypass_get_data
 ):
     """Setup copies bundled automation blueprints into HA config blueprints dir."""
-    from pathlib import Path
-
     config_entry = MockConfigEntry(
         domain=DOMAIN, data=_make_mock_config(), entry_id="bp_setup_test"
     )
@@ -355,3 +360,123 @@ async def test_setup_entry_survives_blueprint_install_oserror(
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
     assert config_entry.entry_id in hass.data[DOMAIN]
+
+
+async def test_boost_polling_service_registration_targeting_and_unload(
+    hass: HomeAssistant, bypass_get_data
+):
+    """boost_polling service registers idempotently, targets entries, and unloads cleanly."""
+    hass.data[DOMAIN] = {"existing_entry": "data"}
+    entry1 = MockConfigEntry(
+        domain=DOMAIN,
+        data=_make_mock_config(),
+        entry_id="entry_one",
+        unique_id="one@example.com",
+    )
+    entry2 = MockConfigEntry(
+        domain=DOMAIN,
+        data=_make_mock_config(),
+        entry_id="entry_two",
+        unique_id="two@example.com",
+    )
+    entry1.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry1.entry_id)
+    assert hass.services.has_service(DOMAIN, SERVICE_BOOST_POLLING)
+
+    # Second entry setup on same domain is idempotent.
+    entry2.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry2.entry_id)
+    assert hass.services.has_service(DOMAIN, SERVICE_BOOST_POLLING)
+
+    coord1 = hass.data[DOMAIN][entry1.entry_id]
+    coord2 = hass.data[DOMAIN][entry2.entry_id]
+
+    with patch.object(
+        coord1, "async_trigger_boost", new_callable=AsyncMock
+    ) as boost1, patch.object(
+        coord2, "async_trigger_boost", new_callable=AsyncMock
+    ) as boost2:
+        # Without entry_id: boosts all loaded coordinators with default duration.
+        await hass.services.async_call(DOMAIN, SERVICE_BOOST_POLLING, {}, blocking=True)
+        boost1.assert_awaited_once_with(DEFAULT_BOOST_DURATION_MINUTES * 60)
+        boost2.assert_awaited_once_with(DEFAULT_BOOST_DURATION_MINUTES * 60)
+
+        boost1.reset_mock()
+        boost2.reset_mock()
+
+        # With entry_id + duration_minutes: boosts only matching entry.
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_BOOST_POLLING,
+            {"entry_id": entry1.entry_id, "duration_minutes": 15},
+            blocking=True,
+        )
+        boost1.assert_awaited_once_with(15 * 60)
+        boost2.assert_not_called()
+
+        boost1.reset_mock()
+
+        # Unknown entry_id: no coordinators boosted and no crash.
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_BOOST_POLLING,
+            {"entry_id": "missing_entry"},
+            blocking=True,
+        )
+        boost1.assert_not_called()
+        boost2.assert_not_called()
+
+    # Schema validation rejects out-of-range duration_minutes.
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_BOOST_POLLING,
+            {"duration_minutes": 0},
+            blocking=True,
+        )
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_BOOST_POLLING,
+            {"duration_minutes": 121},
+            blocking=True,
+        )
+
+    # Unloading one entry keeps the service registered while the other remains.
+    assert await hass.config_entries.async_unload(entry1.entry_id)
+    assert hass.services.has_service(DOMAIN, SERVICE_BOOST_POLLING)
+
+    # Unloading the last coordinator removes the service despite non-coordinator domain keys.
+    assert await hass.config_entries.async_unload(entry2.entry_id)
+    assert not hass.services.has_service(DOMAIN, SERVICE_BOOST_POLLING)
+    assert hass.data[DOMAIN]["existing_entry"] == "data"
+
+
+async def test_services_yaml_schema_and_descriptions(
+    hass: HomeAssistant, bypass_get_data
+):
+    """services.yaml validates cleanly against Home Assistant's service schema."""
+    services_path = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "generac"
+        / "services.yaml"
+    )
+    raw = load_yaml_dict(str(services_path))
+    parsed = ha_service._SERVICES_SCHEMA(raw)
+    assert SERVICE_BOOST_POLLING in parsed
+    assert set(parsed[SERVICE_BOOST_POLLING]["fields"]) == {
+        "duration_minutes",
+        "entry_id",
+    }
+
+    entry = MockConfigEntry(domain=DOMAIN, data=_make_mock_config(), entry_id="test")
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    descriptions = await ha_service.async_get_all_descriptions(hass)
+    assert SERVICE_BOOST_POLLING in descriptions[DOMAIN]
+    assert set(descriptions[DOMAIN][SERVICE_BOOST_POLLING]["fields"]) == {
+        "duration_minutes",
+        "entry_id",
+    }

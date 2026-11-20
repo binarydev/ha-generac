@@ -15,7 +15,8 @@
         "data": {
           "username": "Email",
           "password": "Palavra-passe",
-          "scan_interval": "Intervalo de sondagem à cloud (segundos)"
+          "scan_interval": "Intervalo de sondagem à cloud (segundos)",
+          "active_scan_interval": "Intervalo de sondagem ativo (segundos)"
         }
       },
       "reauth_confirm": {
@@ -59,6 +60,7 @@
     "step": {
       "user": {
         "data": {
+          "active_scan_interval": "Intervalo de sondagem ativo (segundos)",
           "binary_sensor": "Sensores binários ativados",
           "button": "Botões ativados",
           "exercise_interval_days": "Intervalo de alerta de exercício em falta (dias, 0 para desativar)",

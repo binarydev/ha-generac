@@ -36,6 +36,7 @@ from .auth import InvalidCredentialsError
 from .auth import InvalidMfaCodeError
 from .auth import MfaRequiredError
 from .auth import MfaUnsupportedError
+from .const import CONF_ACTIVE_SCAN_INTERVAL
 from .const import CONF_DPOP_PEM
 from .const import CONF_EXERCISE_INTERVAL_DAYS
 from .const import CONF_MFA_CODE
@@ -47,6 +48,7 @@ from .const import CONF_SCAN_INTERVAL
 from .const import CONF_SERVICE_INTERVAL_HOURS
 from .const import CONF_TOKEN_ISSUED_AT
 from .const import CONF_USERNAME
+from .const import DEFAULT_ACTIVE_SCAN_INTERVAL
 from .const import DEFAULT_SCAN_INTERVAL
 from .const import DOMAIN
 from .utils import async_client_session
@@ -98,6 +100,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._mfa_origin: str | None = None
         self._pending_email: str | None = None
         self._pending_scan_interval: int | None = None
+        self._pending_active_scan_interval: int | None = None
 
     @staticmethod
     def _entry_data(auth: GeneracAuth, email: str, password: str | None) -> dict:
@@ -227,6 +230,9 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             email = user_input[CONF_USERNAME].strip()
             password = user_input[CONF_PASSWORD]
             scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            active_scan_interval = user_input.get(
+                CONF_ACTIVE_SCAN_INTERVAL, DEFAULT_ACTIVE_SCAN_INTERVAL
+            )
             remember = user_input.get(CONF_REMEMBER_PASSWORD, False)
 
             try:
@@ -236,10 +242,12 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self._mfa_origin = "reconfigure"
                 self._pending_email = email
                 self._pending_scan_interval = int(scan_interval)
+                self._pending_active_scan_interval = int(active_scan_interval)
                 return await self.async_step_mfa()
 
             if error is None:
                 self._pending_scan_interval = int(scan_interval)
+                self._pending_active_scan_interval = int(active_scan_interval)
                 return await self._finish_reconfigure(entry_data)
             errors["base"] = error
 
@@ -249,6 +257,13 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if entry
             else DEFAULT_SCAN_INTERVAL
         )
+        default_active_scan_interval = (
+            entry_options(entry).get(
+                CONF_ACTIVE_SCAN_INTERVAL, DEFAULT_ACTIVE_SCAN_INTERVAL
+            )
+            if entry
+            else DEFAULT_ACTIVE_SCAN_INTERVAL
+        )
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema(
@@ -257,6 +272,9 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_PASSWORD): str,
                     vol.Required(
                         CONF_SCAN_INTERVAL, default=default_scan_interval
+                    ): int,
+                    vol.Required(
+                        CONF_ACTIVE_SCAN_INTERVAL, default=default_active_scan_interval
                     ): int,
                     vol.Optional(
                         CONF_REMEMBER_PASSWORD,
@@ -268,7 +286,7 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def _finish_reconfigure(self, entry_data: dict):
-        """Terminal action for a reconfigure: persist creds + scan interval."""
+        """Terminal action for a reconfigure: persist creds + scan intervals."""
         # Re-fetch the entry at finish time rather than caching it across the
         # (possible) MFA round-trip — the registry can change underneath us.
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
@@ -277,11 +295,12 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # MFA form). Nothing left to update — abort cleanly instead of
             # dereferencing None.
             return self.async_abort(reason="entry_not_found")
-        # Persist polling interval into entry.options so the coordinator
-        # picks it up the same way the OptionsFlow does.
+        # Persist polling intervals into entry.options so the coordinator
+        # picks them up the same way the OptionsFlow does.
         new_options = {
             **entry_options(entry),
             CONF_SCAN_INTERVAL: int(self._pending_scan_interval),
+            CONF_ACTIVE_SCAN_INTERVAL: int(self._pending_active_scan_interval),
         }
         # Update the stored data/options. When the entry is already loaded the
         # update listener registered in async_setup_entry reloads it exactly

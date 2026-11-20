@@ -15,7 +15,8 @@
         "data": {
           "username": "E-post",
           "password": "Passord",
-          "scan_interval": "Intervall for skyavstemning (sekunder)"
+          "scan_interval": "Intervall for skyavstemning (sekunder)",
+          "active_scan_interval": "Aktivt avstemningsintervall (sekunder)"
         }
       },
       "reauth_confirm": {
@@ -59,6 +60,7 @@
     "step": {
       "user": {
         "data": {
+          "active_scan_interval": "Aktivt avstemningsintervall i sekunder",
           "binary_sensor": "Binær sensor aktivert",
           "button": "Knapper aktivert",
           "exercise_interval_days": "Varselintervall for uteblitt testkjøring (dager, 0 for å deaktivere)",
