@@ -64,3 +64,16 @@ async def test_weather_sensor(hass):
     item = get_mock_item(99, 70.0, "F")
     sensor = WeatherSensor(coordinator, entry, "12345", item)
     assert sensor.condition == "exceptional"
+
+    # Missing weather or temperature returns None rather than 0
+    missing_weather = Item(apparatus=Apparatus(), apparatusDetail=ApparatusDetail())
+    assert (
+        WeatherSensor(coordinator, entry, "12345", missing_weather).native_temperature
+        is None
+    )
+
+    # Explicit 0.0 temperature is preserved
+    zero_temp = get_mock_item(1, 0.0, "C")
+    assert (
+        WeatherSensor(coordinator, entry, "12345", zero_temp).native_temperature == 0.0
+    )

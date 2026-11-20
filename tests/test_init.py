@@ -480,3 +480,84 @@ async def test_services_yaml_schema_and_descriptions(
         "duration_minutes",
         "entry_id",
     }
+
+
+async def test_platform_toggles_setup_reload_and_unload(hass: HomeAssistant):
+    """Platform checkboxes filter forwarded platforms and toggle cleanly on reload."""
+    from custom_components.generac.const import DEVICE_TYPE_GENERATOR
+    from custom_components.generac.const import PLATFORMS
+    from custom_components.generac.models import Apparatus
+    from custom_components.generac.models import ApparatusDetail
+    from custom_components.generac.models import Item
+    from custom_components.generac.models import Weather
+    from homeassistant.helpers import entity_registry as er
+
+    gen_item = Item(
+        apparatus=Apparatus(
+            apparatusId=12345,
+            name="Home Gen",
+            type=DEVICE_TYPE_GENERATOR,
+            weather=Weather(
+                iconCode=1,
+                temperature=Weather.Temperature(value=70.0, unit="F", unitType=1),
+            ),
+        ),
+        apparatusDetail=ApparatusDetail(
+            apparatusId=12345,
+            name="Home Gen",
+            apparatusStatus=1,
+            heroImageUrl="https://example.com/gen.png",
+        ),
+    )
+
+    with patch(
+        "custom_components.generac.api.GeneracApiClient.async_get_data",
+        AsyncMock(return_value={"12345": gen_item}),
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data=_make_mock_config(),
+            options={"button": False, "weather": False, "sensor": None},
+            entry_id="platform_toggle_test",
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        coordinator = hass.data[DOMAIN][entry.entry_id]
+        assert coordinator.loaded_platforms == ["binary_sensor", "sensor", "image"]
+        registry = er.async_get(hass)
+        domains = {
+            e.domain
+            for e in er.async_entries_for_config_entry(registry, entry.entry_id)
+        }
+        assert domains == {"binary_sensor", "sensor", "image"}
+
+        # Toggling button back on and image off unloads old platforms cleanly and loads new set
+        hass.config_entries.async_update_entry(
+            entry,
+            options={"button": True, "weather": False, "image": False},
+        )
+        await hass.async_block_till_done()
+        coordinator2 = hass.data[DOMAIN][entry.entry_id]
+        assert coordinator2.loaded_platforms == ["binary_sensor", "sensor", "button"]
+        assert hass.states.get("button.home_gen_outage_boost_poll") is not None
+        assert hass.states.get("weather.home_gen_weather") is None
+
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        assert entry.entry_id not in hass.data[DOMAIN]
+
+        # All platforms disabled still sets up and unloads cleanly without errors
+        all_disabled_entry = MockConfigEntry(
+            domain=DOMAIN,
+            data=_make_mock_config(),
+            options={platform: False for platform in PLATFORMS},
+            entry_id="all_disabled_test",
+        )
+        all_disabled_entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(all_disabled_entry.entry_id)
+        await hass.async_block_till_done()
+        assert hass.data[DOMAIN][all_disabled_entry.entry_id].loaded_platforms == []
+        assert await hass.config_entries.async_unload(all_disabled_entry.entry_id)
+        assert all_disabled_entry.entry_id not in hass.data[DOMAIN]

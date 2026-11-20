@@ -85,6 +85,16 @@ async def _async_handle_boost_polling(call: ServiceCall) -> None:
         await coordinator.async_trigger_boost(duration_seconds)
 
 
+def _enabled_platforms(entry: ConfigEntry) -> list[str]:
+    """Return platforms enabled in entry options (all enabled by default)."""
+    options = entry_options(entry)
+    return [
+        platform
+        for platform in PLATFORMS
+        if (options.get(platform) if isinstance(options.get(platform), bool) else True)
+    ]
+
+
 def _reload_signature(entry: ConfigEntry) -> tuple[dict, dict]:
     """Snapshot of entry options and non-token data that require a reload on change."""
     return (
@@ -175,7 +185,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    enabled_platforms = _enabled_platforms(entry)
+    coordinator.loaded_platforms = list(enabled_platforms)
+    if enabled_platforms:
+        await hass.config_entries.async_forward_entry_setups(entry, enabled_platforms)
     coordinator.reload_signature = _reload_signature(entry)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     if not hass.services.has_service(DOMAIN, SERVICE_BOOST_POLLING):
@@ -190,7 +203,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Handle removal of an entry."""
-    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    coordinator: GeneracDataUpdateCoordinator | None = hass.data.get(DOMAIN, {}).get(
+        entry.entry_id
+    )
+    platforms_to_unload = (
+        list(coordinator.loaded_platforms)
+        if isinstance(coordinator, GeneracDataUpdateCoordinator)
+        else _enabled_platforms(entry)
+    )
+    unloaded = (
+        await hass.config_entries.async_unload_platforms(entry, platforms_to_unload)
+        if platforms_to_unload
+        else True
+    )
     if unloaded:
         # Defensive default: if a previous reload already popped the
         # coordinator (e.g. mid-reconfigure race), don't KeyError.

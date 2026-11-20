@@ -1,4 +1,5 @@
 """Tests for Generac readiness tracking, persistence, and reload-free updates."""
+import asyncio
 from unittest.mock import AsyncMock
 from unittest.mock import patch
 
@@ -239,3 +240,91 @@ async def test_readiness_edge_cases_and_disabled_interval(hass: HomeAssistant) -
         "new_gen", current_run_time=15.0, now=1_700_000_100.0
     )
     assert tracker.hours_since_service("new_gen") == 0.0
+
+
+async def test_readiness_missing_initial_runtime_transient_zero_and_concurrent_load(
+    hass: HomeAssistant,
+) -> None:
+    """Verify baseline waits for valid run_time, ignores 0-dips, locks load, and tolerates bad options."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="hardening_entry",
+        options={CONF_SERVICE_INTERVAL_HOURS: None, CONF_EXERCISE_INTERVAL_DAYS: "bad"},
+    )
+    entry.add_to_hass(hass)
+    tracker = ReadinessTracker(hass, entry)
+    t0 = 1_700_000_000.0
+
+    # 1. First poll lacks run_time (None): baseline stays None so poll 2 does not false-alarm
+    await tracker.async_update_from_items({"1": _gen(status=1, run_time=None)}, now=t0)
+    assert tracker.get_device_state("1")["service_baseline_hours"] is None
+    assert tracker.hours_since_service("1") is None
+    assert tracker.hours_until_service("1") is None
+
+    await tracker.async_update_from_items(
+        {"1": _gen(status=1, run_time=500.0)}, now=t0 + 900
+    )
+    assert tracker.get_device_state("1")["service_baseline_hours"] == 500.0
+    assert tracker.hours_since_service("1") == 0.0
+    # Malformed None/str options fall back safely to defaults (100 h / 16 days)
+    assert tracker.hours_until_service("1") == 100.0
+    assert tracker.is_missed_exercise("1", now=t0 + 900) is False
+
+    # 2. Transient 0.0 runtime dip (500.0 -> 0.0 -> 500.0) must not drop last_run_time
+    # or falsely advance last_exercise_ts.
+    await tracker.async_update_from_items(
+        {"1": _gen(status=1, run_time=0.0)}, now=t0 + 1800
+    )
+    assert tracker.get_device_state("1")["last_run_time"] == 500.0
+    await tracker.async_update_from_items(
+        {"1": _gen(status=1, run_time=500.0)}, now=t0 + 2700
+    )
+    assert tracker.get_device_state("1")["last_run_time"] == 500.0
+    assert tracker.get_device_state("1")["last_exercise_ts"] == t0
+
+    # Resetting the maintenance timer during a transient 0.0 dip keeps 500.0 baseline
+    await tracker.async_reset_service_timer("1", current_run_time=0.0, now=t0 + 3000)
+    assert tracker.get_device_state("1")["last_run_time"] == 500.0
+    assert tracker.get_device_state("1")["service_baseline_hours"] == 500.0
+    assert tracker.hours_since_service("1") == 0.0
+
+    # 3. Concurrent async_load calls wait on the load lock, load once, and heal beta stores
+    from custom_components.generac.readiness import readiness_store_key
+    from homeassistant.helpers.storage import Store
+
+    concurrent_entry = MockConfigEntry(domain=DOMAIN, entry_id="concurrent_entry")
+    concurrent_entry.add_to_hass(hass)
+    await Store(hass, 1, readiness_store_key(concurrent_entry.entry_id)).async_save(
+        {
+            "devices": {
+                "1": {
+                    "last_exercise_ts": t0,
+                    "last_run_time": 42.0,
+                    "service_baseline_hours": 30.0,
+                },
+                "beta_uninit": {
+                    "last_exercise_ts": t0,
+                    "last_run_time": None,
+                    "service_baseline_hours": 0.0,
+                },
+            }
+        }
+    )
+
+    tracker_conc = ReadinessTracker(hass, concurrent_entry)
+    orig_load = tracker_conc._store.async_load
+
+    async def slow_load():
+        await asyncio.sleep(0.01)
+        return await orig_load()
+
+    with patch.object(
+        tracker_conc._store, "async_load", side_effect=slow_load
+    ) as mock_load:
+        await asyncio.gather(tracker_conc.async_load(), tracker_conc.async_load())
+
+    mock_load.assert_awaited_once()
+    assert tracker_conc.hours_since_service("1") == 12.0
+    assert (
+        tracker_conc.get_device_state("beta_uninit")["service_baseline_hours"] is None
+    )

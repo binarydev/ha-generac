@@ -37,7 +37,9 @@ blueprint:
           unit_of_measurement: seconds
     restore_loads:
       name: Restore Shed Loads
-      description: Turn shed entities back on after utility power stabilizes.
+      description: >-
+        Turn previously active shed entities (not already off, unavailable, or
+        unknown) back on after utility power stabilizes.
       default: true
       selector:
         boolean: {}
@@ -53,7 +55,7 @@ blueprint:
           max: 120
           unit_of_measurement: seconds
 
-mode: restart
+mode: single
 max_exceeded: silent
 
 triggers:
@@ -62,28 +64,44 @@ triggers:
     to: "Running"
 
 variables:
+  shed_entities: !input shed_entities
   restore_loads: !input restore_loads
   restore_stagger_delay: !input restore_stagger_delay
 
 actions:
-  - alias: Shed high-draw loads
-    action: homeassistant.turn_off
-    target:
-      entity_id: !input shed_entities
-  - alias: Wait for generator to return to Ready
-    wait_for_trigger:
-      - trigger: state
-        entity_id: !input generator_status
-        to: "Ready"
-        for:
-          seconds: !input ready_stabilization_delay
+  - variables:
+      shed_list: "{{ [shed_entities] if shed_entities is string else shed_entities }}"
+      entities_to_restore: >-
+        {{ shed_list | select('has_value') | reject('is_state', 'off') | list }}
+  - alias: Keep high-draw loads shed until generator stabilizes in Ready
+    repeat:
+      sequence:
+        - alias: Shed high-draw loads
+          action: homeassistant.turn_off
+          target:
+            entity_id: !input shed_entities
+        - alias: Wait for generator to stabilize in Ready or re-enter Running
+          wait_for_trigger:
+            - id: ready
+              trigger: state
+              entity_id: !input generator_status
+              to: "Ready"
+              for:
+                seconds: !input ready_stabilization_delay
+            - id: running_again
+              trigger: state
+              entity_id: !input generator_status
+              to: "Running"
+      until:
+        - condition: template
+          value_template: "{{ wait.trigger is not none and wait.trigger.id == 'ready' }}"
   - if:
       - condition: template
-        value_template: "{{ restore_loads }}"
+        value_template: "{{ restore_loads and (entities_to_restore | length > 0) }}"
     then:
       - alias: Restore shed loads
         repeat:
-          for_each: !input shed_entities
+          for_each: "{{ entities_to_restore }}"
           sequence:
             - action: homeassistant.turn_on
               target:

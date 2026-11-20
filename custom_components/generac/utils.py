@@ -60,3 +60,43 @@ def safe_float(val: Any, label: str = "") -> float | None:
     if not math.isfinite(result):
         return None
     return result
+
+
+def safe_int_option(
+    options: Mapping[str, Any],
+    key: str,
+    default: int,
+    *,
+    min_value: int | None = None,
+) -> int:
+    """Read an integer option defensively, falling back to default on bad values."""
+    raw = options.get(key, default)
+    if (
+        raw is None
+        or isinstance(raw, bool)
+        or (isinstance(raw, float) and not math.isfinite(raw))
+    ):
+        value = default
+    else:
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            value = default
+    if min_value is not None:
+        return max(min_value, value)
+    return value
+
+
+def safe_float_option(
+    options: Mapping[str, Any],
+    key: str,
+    default: float,
+    *,
+    min_value: float | None = None,
+) -> float:
+    """Read a finite float option defensively, falling back to default on bad values."""
+    parsed = safe_float(options.get(key, default), key)
+    value = default if parsed is None else parsed
+    if min_value is not None:
+        return max(min_value, value)
+    return value

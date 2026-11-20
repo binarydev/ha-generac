@@ -228,13 +228,20 @@ async def test_coordinator_clamps_intervals_and_tolerates_mock_options(hass):
     assert coord_short.active_scan_interval == 120
     assert coord_short.fast_scan_interval == 60
 
+    entry_bad = MagicMock()
+    entry_bad.options = {CONF_SCAN_INTERVAL: "bad", CONF_ACTIVE_SCAN_INTERVAL: True}
+    coord_bad = GeneracDataUpdateCoordinator(hass, MagicMock(), entry_bad)
+    assert coord_bad.idle_scan_interval == DEFAULT_SCAN_INTERVAL
+    assert coord_bad.active_scan_interval == DEFAULT_ACTIVE_SCAN_INTERVAL
+
 
 def test_is_fleet_active_variants():
     """Verify _is_fleet_active across device types, statuses, flags, and malformed inputs."""
     assert _is_fleet_active(None) is False
     assert _is_fleet_active({"foo": "bar"}) is False
     assert _is_fleet_active({"g": _item(DEVICE_TYPE_GENERATOR, status=1)}) is False
-    for active_status in (2, 3, 4, 5):
+    assert _is_fleet_active({"g": _item(DEVICE_TYPE_GENERATOR, status=5)}) is False
+    for active_status in (2, 3, 4):
         assert (
             _is_fleet_active({"g": _item(DEVICE_TYPE_GENERATOR, status=active_status)})
             is True

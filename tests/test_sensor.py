@@ -653,3 +653,85 @@ def test_error_code_sensor():
     for empty_val in ("", "   ", None, 123):
         item.apparatusDetail.eCodeLabel = empty_val
         assert sensor.native_value is None
+
+
+def test_missing_properties_return_none_while_explicit_zero_preserved():
+    """Missing properties/weather return None to avoid LTS spikes, while explicit 0 is kept."""
+    entry = MagicMock()
+
+    # Empty/missing properties on generator & propane monitor must return None
+    missing_gen = Item(
+        apparatus=Apparatus(apparatusId=1, type=DEVICE_TYPE_GENERATOR),
+        apparatusDetail=ApparatusDetail(apparatusId=1, properties=None, weather=None),
+    )
+    assert RunTimeSensor(MagicMock(), entry, "1", missing_gen).native_value is None
+    assert (
+        ProtectionTimeSensor(MagicMock(), entry, "1", missing_gen).native_value is None
+    )
+    assert (
+        BatteryVoltageSensor(MagicMock(), entry, "1", missing_gen).native_value is None
+    )
+    assert (
+        OutdoorTemperatureSensor(MagicMock(), entry, "1", missing_gen).native_value
+        is None
+    )
+
+    missing_gen_empty_props = Item(
+        apparatus=Apparatus(apparatusId=1, type=DEVICE_TYPE_GENERATOR),
+        apparatusDetail=ApparatusDetail(
+            apparatusId=1,
+            properties=[],
+            weather=Weather(
+                temperature=Weather.Temperature(value=None, unit="F", unitType=1),
+                iconCode=1,
+            ),
+        ),
+    )
+    assert (
+        RunTimeSensor(MagicMock(), entry, "1", missing_gen_empty_props).native_value
+        is None
+    )
+    assert (
+        ProtectionTimeSensor(
+            MagicMock(), entry, "1", missing_gen_empty_props
+        ).native_value
+        is None
+    )
+    assert (
+        BatteryVoltageSensor(
+            MagicMock(), entry, "1", missing_gen_empty_props
+        ).native_value
+        is None
+    )
+    assert (
+        OutdoorTemperatureSensor(
+            MagicMock(), entry, "1", missing_gen_empty_props
+        ).native_value
+        is None
+    )
+
+    missing_prop = Item(
+        apparatus=Apparatus(apparatusId=2, type=DEVICE_TYPE_PROPANE_MONITOR),
+        apparatusDetail=ApparatusDetail(apparatusId=2, tuProperties=None),
+    )
+    assert CapacitySensor(MagicMock(), entry, "2", missing_prop).native_value is None
+
+    # Explicit 0 values from the API must still be preserved as 0.0
+    zero_gen = get_mock_item(
+        DEVICE_TYPE_GENERATOR,
+        1,
+        run_time=0,
+        protection_time=0,
+        battery_voltage=0.0,
+        outdoor_temperature=0.0,
+        outdoor_temperature_unit="C",
+    )
+    assert RunTimeSensor(MagicMock(), entry, "1", zero_gen).native_value == 0.0
+    assert ProtectionTimeSensor(MagicMock(), entry, "1", zero_gen).native_value == 0.0
+    assert BatteryVoltageSensor(MagicMock(), entry, "1", zero_gen).native_value == 0.0
+    assert (
+        OutdoorTemperatureSensor(MagicMock(), entry, "1", zero_gen).native_value == 0.0
+    )
+
+    zero_prop = get_mock_item(DEVICE_TYPE_PROPANE_MONITOR, 1, capacity=0)
+    assert CapacitySensor(MagicMock(), entry, "2", zero_prop).native_value == 0.0

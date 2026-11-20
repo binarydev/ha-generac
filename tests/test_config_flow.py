@@ -941,3 +941,107 @@ async def test_reconfigure_flow_persists_active_scan_interval(
 
     assert entry.options.get(CONF_SCAN_INTERVAL) == 600
     assert entry.options.get(CONF_ACTIVE_SCAN_INTERVAL) == 90
+
+
+async def test_options_flow_and_reconfigure_schema_bounds_and_serialization(
+    hass: HomeAssistant,
+) -> None:
+    """Options and Reconfigure validate bounds, reject non-finite floats, and serialize cleanly."""
+    import voluptuous_serialize
+    from custom_components.generac.const import CONF_EXERCISE_INTERVAL_DAYS
+    from custom_components.generac.const import CONF_FUEL_BURN_RATE
+    from custom_components.generac.const import CONF_LOW_BATTERY_THRESHOLD
+    from custom_components.generac.const import CONF_SERVICE_INTERVAL_HOURS
+    from custom_components.generac.const import DEFAULT_EXERCISE_INTERVAL_DAYS
+    from custom_components.generac.const import DEFAULT_LOW_BATTERY_THRESHOLD
+    from custom_components.generac.const import DEFAULT_SCAN_INTERVAL
+    from custom_components.generac.const import DEFAULT_SERVICE_INTERVAL_HOURS
+    from homeassistant.data_entry_flow import InvalidData
+    from homeassistant.helpers import config_validation as cv
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_REFRESH_TOKEN: "old-rt",
+            CONF_DPOP_PEM: DPoPKey.generate().to_pem_str(),
+        },
+        options={
+            "button": None,
+            CONF_SCAN_INTERVAL: "bad",
+            CONF_ACTIVE_SCAN_INTERVAL: 3,
+            CONF_SERVICE_INTERVAL_HOURS: True,
+            CONF_EXERCISE_INTERVAL_DAYS: "oops",
+            CONF_LOW_BATTERY_THRESHOLD: float("inf"),
+        },
+    )
+    entry.add_to_hass(hass)
+
+    with patch("custom_components.generac.async_setup_entry", return_value=True):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    # OptionsFlow: schema serializes for HA UI and recovers corrupted defaults cleanly
+    opt_res = await hass.config_entries.options.async_init(entry.entry_id)
+    assert opt_res["type"] == "form"
+    serialized_opts = voluptuous_serialize.convert(
+        opt_res["data_schema"], custom_serializer=cv.custom_serializer
+    )
+    assert any(field["name"] == CONF_SCAN_INTERVAL for field in serialized_opts)
+
+    for bad_input in (
+        {CONF_SCAN_INTERVAL: 5},
+        {CONF_ACTIVE_SCAN_INTERVAL: 0},
+        {CONF_FUEL_BURN_RATE: float("inf")},
+        {CONF_FUEL_BURN_RATE: float("nan")},
+        {CONF_LOW_BATTERY_THRESHOLD: float("inf")},
+        {CONF_LOW_BATTERY_THRESHOLD: float("nan")},
+        {CONF_LOW_BATTERY_THRESHOLD: -1.0},
+    ):
+        with pytest.raises(InvalidData):
+            await hass.config_entries.options.async_configure(
+                opt_res["flow_id"], user_input=bad_input
+            )
+
+    opt_done = await hass.config_entries.options.async_configure(
+        opt_res["flow_id"], user_input={}
+    )
+    assert opt_done["type"] == "create_entry"
+    assert entry.options["button"] is True
+    assert entry.options[CONF_SCAN_INTERVAL] == DEFAULT_SCAN_INTERVAL
+    assert entry.options[CONF_ACTIVE_SCAN_INTERVAL] == 10
+    assert entry.options[CONF_SERVICE_INTERVAL_HOURS] == DEFAULT_SERVICE_INTERVAL_HOURS
+    assert entry.options[CONF_EXERCISE_INTERVAL_DAYS] == DEFAULT_EXERCISE_INTERVAL_DAYS
+    assert entry.options[CONF_LOW_BATTERY_THRESHOLD] == DEFAULT_LOW_BATTERY_THRESHOLD
+
+    # Reconfigure: schema serializes cleanly and enforces >= 10s intervals
+    rec_res = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": entry.entry_id},
+    )
+    assert rec_res["type"] == "form"
+    serialized_rec = voluptuous_serialize.convert(
+        rec_res["data_schema"], custom_serializer=cv.custom_serializer
+    )
+    assert any(field["name"] == CONF_ACTIVE_SCAN_INTERVAL for field in serialized_rec)
+
+    with pytest.raises(InvalidData):
+        await hass.config_entries.flow.async_configure(
+            rec_res["flow_id"],
+            {
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "new-pw",
+                CONF_SCAN_INTERVAL: 9,
+                CONF_ACTIVE_SCAN_INTERVAL: 120,
+            },
+        )
+    with pytest.raises(InvalidData):
+        await hass.config_entries.flow.async_configure(
+            rec_res["flow_id"],
+            {
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "new-pw",
+                CONF_SCAN_INTERVAL: 900,
+                CONF_ACTIVE_SCAN_INTERVAL: 0,
+            },
+        )

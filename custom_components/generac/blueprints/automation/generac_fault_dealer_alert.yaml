@@ -2,8 +2,8 @@ blueprint:
   name: Generac Fault & Dealer Contact Alert
   description: >-
     Send a detailed notification including generator status, diagnostic text,
-    and your preferred dealer's name and phone number when a fault, stop,
-    communication issue, warning, or maintenance alert occurs.
+    optional error code, and your preferred dealer's name and phone number when
+    a fault, stop, communication issue, warning, or maintenance alert occurs.
   domain: automation
   author: ha-generac
   input:
@@ -49,6 +49,15 @@ blueprint:
           filter:
             - integration: generac
               domain: sensor
+    error_code_sensor:
+      name: Generator Error Code Sensor (Optional)
+      description: Optional Generac error code sensor for active fault diagnostics.
+      default: null
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
     notify_service:
       name: Notification Service
       description: >-
@@ -78,6 +87,7 @@ triggers:
 variables:
   status_entity: !input status_sensor
   status_text_entity: !input status_text_sensor
+  error_code_entity: !input error_code_sensor
   maintenance_entity: !input maintenance_sensor
   dealer_name_entity: !input dealer_name_sensor
   dealer_phone_entity: !input dealer_phone_sensor
@@ -87,19 +97,25 @@ actions:
     action: !input notify_service
     data:
       title: >-
-        {% if trigger.entity_id == maintenance_entity %}
+        {%- if trigger.entity_id == maintenance_entity -%}
         Generac Maintenance Alert ({{ states(status_entity) }})
-        {% else %}
+        {%- else -%}
         Generac Alert: {{ states(status_entity) }}
-        {% endif %}
-      message: >-
-        {% set status = states(status_entity) %}
-        {% set details = states(status_text_entity) %}
-        {% set dealer = states(dealer_name_entity) %}
-        {% set phone = states(dealer_phone_entity) %}
+        {%- endif -%}
+      message: |-
+        {%- set status = states(status_entity) -%}
+        {%- set details = states(status_text_entity) -%}
+        {%- set dealer = states(dealer_name_entity) -%}
+        {%- set phone = states(dealer_phone_entity) -%}
         Status: {{ status }}
-        {% if details not in ['unknown', 'unavailable', ''] %}
+        {%- if error_code_entity not in [none, ''] %}
+        {%- set error_code = states(error_code_entity) %}
+        {%- if error_code not in ['unknown', 'unavailable', ''] %}
+        Error Code: {{ error_code }}
+        {%- endif %}
+        {%- endif %}
+        {%- if details not in ['unknown', 'unavailable', ''] %}
         Details: {{ details }}
-        {% endif %}
+        {%- endif %}
         Dealer: {{ dealer if dealer not in ['unknown', 'unavailable', ''] else 'Not configured' }}
         Phone: {{ phone if phone not in ['unknown', 'unavailable', ''] else 'Not configured' }}
