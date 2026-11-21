@@ -68,11 +68,21 @@ async def test_first_sight_prevents_day_1_alarms_and_ignores_propane(
         "last_exercise_ts": t0,
         "last_run_time": 250.0,
         "service_baseline_hours": 250.0,
+        "last_outage_ts": None,
+        "last_observed_exercise_ts": None,
+        "last_outage_duration_minutes": None,
+        "last_outage_details": None,
+        "active_session": None,
+        "fault_active": False,
     }
     assert tracker.get_device_state("2") is None
     assert tracker.hours_since_service("1") == 0.0
     assert tracker.hours_until_service("1") == 100.0
     assert tracker.is_missed_exercise("1", now=t0) is False
+    assert tracker.last_outage("1") is None
+    assert tracker.last_exercise("1") is None
+    assert tracker.last_outage_duration_minutes("1") is None
+    assert tracker.last_outage_details("1") is None
 
 
 async def test_exercise_detection_via_status_and_run_time_delta(
@@ -135,14 +145,17 @@ async def test_store_persistence_across_restarts_without_mutating_entry_data(
     await tracker1.async_update_from_items({"1": _gen(run_time=120.0)}, now=t0 + 3600)
     assert dict(entry.data) == initial_entry_data
 
-    # New tracker instance loads persisted baseline and exercise timestamp from Store
+    # New tracker instance loads persisted baseline, outage ledger, and exercise timestamp
     tracker2 = ReadinessTracker(hass, entry)
     await tracker2.async_load()
-    assert tracker2.get_device_state("1") == {
-        "last_exercise_ts": t0 + 3600,
-        "last_run_time": 120.0,
-        "service_baseline_hours": 100.0,
-    }
+    loaded = tracker2.get_device_state("1")
+    assert loaded["last_exercise_ts"] == t0 + 3600
+    assert loaded["last_run_time"] == 120.0
+    assert loaded["service_baseline_hours"] == 100.0
+    assert loaded["last_outage_ts"] == t0 + 3600
+    assert loaded["last_outage_duration_minutes"] == 1200.0
+    assert loaded["last_outage_details"]["inferred"] is True
+    assert loaded["last_outage_details"]["run_hours_delta"] == 20.0
     assert tracker2.hours_since_service("1") == 20.0
     assert tracker2.hours_until_service("1") == 80.0
 
@@ -328,3 +341,106 @@ async def test_readiness_missing_initial_runtime_transient_zero_and_concurrent_l
     assert (
         tracker_conc.get_device_state("beta_uninit")["service_baseline_hours"] is None
     )
+
+
+async def test_v1_to_v2_migration_and_session_classification(
+    hass: HomeAssistant,
+) -> None:
+    """v1 store migrates cleanly and unobserved run_time deltas classify accurately."""
+    from custom_components.generac.const import CONF_FUEL_BURN_RATE
+    from custom_components.generac.const import EVENT_EXERCISE_COMPLETED
+    from custom_components.generac.const import EVENT_FAULT_CLEARED
+    from custom_components.generac.const import EVENT_FAULT_DETECTED
+    from custom_components.generac.const import EVENT_OUTAGE_ENDED
+    from custom_components.generac.const import EVENT_OUTAGE_STARTED
+    from custom_components.generac.readiness import readiness_store_key
+    from homeassistant.helpers.storage import Store
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="v1_migrate_entry",
+        options={CONF_FUEL_BURN_RATE: 3.0},
+    )
+    entry.add_to_hass(hass)
+    t0 = 1_700_000_000.0
+
+    # Seed v1 store record (no session ledger fields yet)
+    await Store(hass, 1, readiness_store_key(entry.entry_id)).async_save(
+        {
+            "devices": {
+                "1": {
+                    "last_exercise_ts": t0,
+                    "last_run_time": 100.0,
+                    "service_baseline_hours": 80.0,
+                }
+            }
+        }
+    )
+
+    tracker = ReadinessTracker(hass, entry)
+    await tracker.async_load()
+    assert tracker.hours_since_service("1") == 20.0
+    assert tracker.last_outage("1") is None
+    assert tracker.last_exercise("1") is None
+    assert tracker.last_outage_duration_minutes("1") is None
+
+    # 1. Short unobserved run_time jump (+0.2 h = 12 min <= 21 min default) -> exercise
+    ev1 = await tracker.async_update_from_items(
+        {"1": _gen(status=1, run_time=100.2)}, now=t0 + 900
+    )
+    assert [e[0] for e in ev1["1"]] == [EVENT_EXERCISE_COMPLETED]
+    assert ev1["1"][0][1]["inferred"] is True
+    assert tracker.last_exercise("1").timestamp() == t0 + 900
+    assert tracker.last_outage("1") is None
+
+    # 2. Custom single-cycle exercise_minutes (30 min -> 35 min threshold):
+    #    +0.5 h (30 min) classifies as exercise.
+    gen_30m = _gen(status=1, run_time=100.7)
+    gen_30m.apparatusDetail.properties.append(
+        ApparatusDetail.Property(name="Exercise Minutes", value="30", type=95)
+    )
+    ev2 = await tracker.async_update_from_items({"1": gen_30m}, now=t0 + 3600)
+    assert [e[0] for e in ev2["1"]] == [EVENT_EXERCISE_COMPLETED]
+    assert tracker.last_outage("1") is None
+
+    # 3. Bogus cumulative exercise_minutes (1635 > 60) falls back to 21 min threshold:
+    #    +0.5 h (30 min) classifies as an inferred outage (0.5 h * 3.0 gal/h = 1.5 gal).
+    gen_bogus_ex = _gen(status=1, run_time=101.2)
+    gen_bogus_ex.apparatusDetail.properties.append(
+        ApparatusDetail.Property(name="Exercise Minutes", value="1635", type=95)
+    )
+    ev3 = await tracker.async_update_from_items({"1": gen_bogus_ex}, now=t0 + 7200)
+    assert [e[0] for e in ev3["1"]] == [EVENT_OUTAGE_ENDED]
+    assert ev3["1"][0][1]["inferred"] is True
+    assert ev3["1"][0][1]["estimated_fuel_used"] == 1.5
+    assert tracker.last_outage_duration_minutes("1") == 30.0
+    details = tracker.last_outage_details("1")
+    assert details["inferred"] is True
+    assert details["run_hours_delta"] == 0.5
+    assert details["estimated_fuel_used"] == 1.5
+    assert "started_at" in details and "ended_at" in details
+
+    # 4. Observed outage start -> fault detected -> restart -> fault cleared -> outage ended
+    ev4 = await tracker.async_update_from_items(
+        {"1": _gen(status=2, run_time=101.2)}, now=t0 + 10000
+    )
+    assert [e[0] for e in ev4["1"]] == [EVENT_OUTAGE_STARTED]
+
+    fault_gen = _gen(status=2, run_time=101.5)
+    fault_gen.apparatusDetail.showWarning = True
+    fault_gen.apparatusDetail.eCodeLabel = "E2800"
+    ev5 = await tracker.async_update_from_items({"1": fault_gen}, now=t0 + 10900)
+    assert [e[0] for e in ev5["1"]] == [EVENT_FAULT_DETECTED]
+
+    # Reload tracker from v2 store: still in fault & active outage -> no duplicate start/fault
+    tracker2 = ReadinessTracker(hass, entry)
+    ev6 = await tracker2.async_update_from_items({"1": fault_gen}, now=t0 + 11200)
+    assert ev6 == {}
+
+    # Clear fault and end outage
+    ev7 = await tracker2.async_update_from_items(
+        {"1": _gen(status=1, run_time=102.2)}, now=t0 + 13600
+    )
+    assert [e[0] for e in ev7["1"]] == [EVENT_OUTAGE_ENDED, EVENT_FAULT_CLEARED]
+    assert tracker2.last_outage_duration_minutes("1") == 60.0
+    assert tracker2.last_outage_details("1")["estimated_fuel_used"] == 3.0

@@ -77,6 +77,7 @@
           "active_scan_interval": "Aktivt avstemningsintervall i sekunder",
           "binary_sensor": "Binær sensor aktivert",
           "button": "Knapper aktivert",
+          "event": "Hendelser aktivert",
           "exercise_interval_days": "Varselintervall for uteblitt testkjøring (dager, 0 for å deaktivere)",
           "fuel_burn_rate": "Estimert drivstofforbruk (gal/t)",
           "image": "Bilde aktivert",

@@ -73,6 +73,9 @@ def sensors(item: Item) -> list[Type[GeneracEntity]]:
             # never orphaned; it reports unknown when the value is missing.
             SignalStrengthSensor,
             HoursUntilServiceSensor,
+            LastOutageSensor,
+            LastExerciseSensor,
+            LastOutageDurationSensor,
         ]
     elif item.apparatus.type == DEVICE_TYPE_PROPANE_MONITOR:
         lst = [
@@ -696,4 +699,61 @@ class HoursUntilServiceSensor(GeneracEntity, SensorEntity):
         hours_since = self.coordinator.hours_since_service(self.device_id)
         if hours_since is None or isinstance(hours_since, (int, float)):
             attrs["hours_since_service"] = hours_since
+        return attrs
+
+
+class LastOutageSensor(GeneracEntity, SensorEntity):
+    """Timestamp of the generator's last observed or inferred outage."""
+
+    entity_key = "last_outage"
+    entity_label = "Last Outage"
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:flash-off"
+
+    @property
+    def native_value(self):
+        """Return UTC datetime of the last outage, or None if none observed."""
+        return self.coordinator.last_outage(self.device_id)
+
+
+class LastExerciseSensor(GeneracEntity, SensorEntity):
+    """Timestamp of the generator's last observed or inferred exercise."""
+
+    entity_key = "last_exercise"
+    entity_label = "Last Exercise"
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:calendar-clock"
+
+    @property
+    def native_value(self):
+        """Return UTC datetime of the last exercise, or None if none observed."""
+        return self.coordinator.last_exercise(self.device_id)
+
+
+class LastOutageDurationSensor(GeneracEntity, SensorEntity):
+    """Duration in minutes of the generator's last completed or inferred outage."""
+
+    entity_key = "last_outage_duration"
+    entity_label = "Last Outage Duration"
+
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+    _attr_icon = "mdi:timer-outline"
+
+    @property
+    def native_value(self):
+        """Return duration in minutes of the last completed outage."""
+        return self.coordinator.last_outage_duration_minutes(self.device_id)
+
+    @property
+    def extra_state_attributes(self):
+        """Include start/end timestamps, run-hour delta, and estimated fuel used."""
+        attrs = dict(super().extra_state_attributes)
+        details = self.coordinator.last_outage_details(self.device_id)
+        if isinstance(details, dict):
+            attrs.update(details)
         return attrs

@@ -18,6 +18,7 @@ EXPECTED_BLUEPRINTS = {
     "generac_outage_load_shedding.yaml",
     "generac_fault_dealer_alert.yaml",
     "generac_storm_readiness_digest.yaml",
+    "generac_post_outage_summary.yaml",
 }
 
 
@@ -116,6 +117,21 @@ async def test_bundled_blueprints_instantiate_valid_automations(
                 "fuel_level_sensor": "sensor.propane_tank_fuel_level",
                 "remaining_fuel_sensor": "sensor.propane_tank_remaining_fuel",
                 "estimated_runtime_sensor": "sensor.propane_tank_estimated_runtime_remaining",
+                "notify_service": "notify.notify",
+            },
+        ],
+        "generac_post_outage_summary.yaml": [
+            {
+                "generator_status": "sensor.generator_status",
+                "last_outage_duration_sensor": "sensor.generator_last_outage_duration",
+            },
+            {
+                "generator_status": "sensor.generator_status",
+                "last_outage_duration_sensor": "sensor.generator_last_outage_duration",
+                "hours_until_service_sensor": "sensor.generator_hours_until_service",
+                "remaining_fuel_sensor": "sensor.propane_tank_remaining_fuel",
+                "estimated_runtime_sensor": "sensor.propane_tank_estimated_runtime_remaining",
+                "ready_stabilization_delay": 30,
                 "notify_service": "notify.notify",
             },
         ],
@@ -343,3 +359,81 @@ async def test_bundled_blueprints_runtime_execution(hass: HomeAssistant) -> None
     await hass.async_block_till_done()
     assert hass.states.get("switch.ev").state == "on"
     assert hass.states.get("switch.pool").state == "off"
+
+
+async def test_post_outage_summary_blueprint_runtime(hass: HomeAssistant) -> None:
+    """Post-outage summary ignores Exercising and renders All Clear after Ready."""
+    await async_setup_component(hass, "homeassistant", {})
+    notifications: list[dict] = []
+
+    async def _notify(call):
+        notifications.append(dict(call.data))
+
+    hass.services.async_register("notify", "notify", _notify)
+    install_bundled_blueprints(hass.config.path("blueprints", "automation", "generac"))
+
+    hass.states.async_set("sensor.gen_status", "Ready")
+    hass.states.async_set(
+        "sensor.gen_outage_dur",
+        "90.0",
+        {"run_hours_delta": 1.5, "estimated_fuel_used": 3.3},
+    )
+    hass.states.async_set("sensor.gen_service", "83.0")
+    hass.states.async_set("sensor.tank_gal", "321.7")
+    hass.states.async_set("sensor.tank_rt", "146.2")
+
+    assert await async_setup_component(
+        hass,
+        "automation",
+        {
+            "automation": [
+                {
+                    "id": "post_outage_rt",
+                    "alias": "Post Outage Summary",
+                    "use_blueprint": {
+                        "path": "generac/generac_post_outage_summary.yaml",
+                        "input": {
+                            "generator_status": "sensor.gen_status",
+                            "last_outage_duration_sensor": "sensor.gen_outage_dur",
+                            "hours_until_service_sensor": "sensor.gen_service",
+                            "remaining_fuel_sensor": "sensor.tank_gal",
+                            "estimated_runtime_sensor": "sensor.tank_rt",
+                            "ready_stabilization_delay": 0,
+                            "notify_service": "notify.notify",
+                        },
+                    },
+                }
+            ]
+        },
+    )
+    await hass.async_block_till_done()
+
+    # Scheduled Exercising cycle must NOT trigger post-outage summary
+    hass.states.async_set("sensor.gen_status", "Exercising")
+    await hass.async_block_till_done()
+    hass.states.async_set("sensor.gen_status", "Ready")
+    await hass.async_block_till_done()
+    assert notifications == []
+
+    # Outage (Running -> Warning -> Running -> Ready) sends one All Clear summary
+    hass.states.async_set("sensor.gen_status", "Running")
+    await asyncio.sleep(0.05)
+    hass.states.async_set("sensor.gen_status", "Warning")
+    await asyncio.sleep(0.05)
+    hass.states.async_set("sensor.gen_status", "Running")
+    await asyncio.sleep(0.05)
+    assert notifications == []
+
+    hass.states.async_set("sensor.gen_status", "Ready")
+    await hass.async_block_till_done()
+    assert len(notifications) == 1
+    assert notifications[0]["title"] == "Generac Post-Outage Summary (All Clear)"
+    assert notifications[0]["message"] == (
+        "Utility power restored and generator is back in Ready.\n"
+        "Outage Duration: 90.0 min\n"
+        "Run Hours Added: 1.5 h\n"
+        "Estimated Fuel Used: 3.3 gal\n"
+        "Remaining Fuel: 321.7 gal\n"
+        "Estimated Runtime Remaining: 146.2 h\n"
+        "Hours Until Service: 83.0 h"
+    )
