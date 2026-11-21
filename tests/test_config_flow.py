@@ -947,7 +947,6 @@ async def test_options_flow_and_reconfigure_schema_bounds_and_serialization(
     hass: HomeAssistant,
 ) -> None:
     """Options and Reconfigure validate bounds, reject non-finite floats, and serialize cleanly."""
-    import voluptuous_serialize
     from custom_components.generac.const import CONF_EXERCISE_INTERVAL_DAYS
     from custom_components.generac.const import CONF_FUEL_BURN_RATE
     from custom_components.generac.const import CONF_LOW_BATTERY_THRESHOLD
@@ -957,7 +956,7 @@ async def test_options_flow_and_reconfigure_schema_bounds_and_serialization(
     from custom_components.generac.const import DEFAULT_SCAN_INTERVAL
     from custom_components.generac.const import DEFAULT_SERVICE_INTERVAL_HOURS
     from homeassistant.data_entry_flow import InvalidData
-    from homeassistant.helpers import config_validation as cv
+    from homeassistant.helpers.data_entry_flow import FlowManagerIndexView
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -984,9 +983,9 @@ async def test_options_flow_and_reconfigure_schema_bounds_and_serialization(
     # OptionsFlow: schema serializes for HA UI and recovers corrupted defaults cleanly
     opt_res = await hass.config_entries.options.async_init(entry.entry_id)
     assert opt_res["type"] == "form"
-    serialized_opts = voluptuous_serialize.convert(
-        opt_res["data_schema"], custom_serializer=cv.custom_serializer
-    )
+    serialized_opts = FlowManagerIndexView(
+        hass.config_entries.options
+    )._prepare_result_json(opt_res)["data_schema"]
     assert any(field["name"] == CONF_SCAN_INTERVAL for field in serialized_opts)
 
     for bad_input in (
@@ -1020,9 +1019,9 @@ async def test_options_flow_and_reconfigure_schema_bounds_and_serialization(
         context={"source": "reconfigure", "entry_id": entry.entry_id},
     )
     assert rec_res["type"] == "form"
-    serialized_rec = voluptuous_serialize.convert(
-        rec_res["data_schema"], custom_serializer=cv.custom_serializer
-    )
+    serialized_rec = FlowManagerIndexView(
+        hass.config_entries.flow
+    )._prepare_result_json(rec_res)["data_schema"]
     assert any(field["name"] == CONF_ACTIVE_SCAN_INTERVAL for field in serialized_rec)
 
     with pytest.raises(InvalidData):
