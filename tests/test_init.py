@@ -1,4 +1,6 @@
 """Test generac setup process."""
+import json
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock
 from unittest.mock import patch
@@ -11,6 +13,7 @@ from custom_components.generac import async_unload_entry
 from custom_components.generac.auth import DPoPKey
 from custom_components.generac.auth import GeneracAuth
 from custom_components.generac.const import CONF_DPOP_PEM
+from custom_components.generac.const import CONF_OPTIONS
 from custom_components.generac.const import CONF_PASSWORD
 from custom_components.generac.const import CONF_REFRESH_TOKEN
 from custom_components.generac.const import CONF_TOKEN_ISSUED_AT
@@ -18,6 +21,8 @@ from custom_components.generac.const import CONF_USERNAME
 from custom_components.generac.const import DEFAULT_BOOST_DURATION_MINUTES
 from custom_components.generac.const import DOMAIN
 from custom_components.generac.const import SERVICE_BOOST_POLLING
+from custom_components.generac.const import STARTUP_MESSAGE
+from custom_components.generac.const import VERSION
 from custom_components.generac.coordinator import GeneracDataUpdateCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -43,14 +48,16 @@ async def test_setup_unload_and_reload_entry(hass: HomeAssistant, bypass_get_dat
     )
     config_entry.add_to_hass(hass)
 
-    await hass.config_entries.async_setup(config_entry.entry_id)
-    assert await async_setup_entry(hass, config_entry)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
 
     assert await async_reload_entry(hass, config_entry) is None
+    await hass.async_block_till_done()
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
 
-    assert await async_unload_entry(hass, config_entry)
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
     assert config_entry.entry_id not in hass.data[DOMAIN]
 
 
@@ -106,8 +113,8 @@ async def test_setup_entry_existing_domain(hass: HomeAssistant, bypass_get_data)
     )
     config_entry.add_to_hass(hass)
 
-    await hass.config_entries.async_setup(config_entry.entry_id)
-    assert await async_setup_entry(hass, config_entry)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
     assert "existing_entry" in hass.data[DOMAIN]
 
@@ -119,8 +126,8 @@ async def test_unload_entry_failed(hass: HomeAssistant, bypass_get_data):
     )
     config_entry.add_to_hass(hass)
 
-    await hass.config_entries.async_setup(config_entry.entry_id)
-    assert await async_setup_entry(hass, config_entry)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
 
     with patch(
         "homeassistant.config_entries.ConfigEntries.async_unload_platforms",
@@ -561,3 +568,59 @@ async def test_platform_toggles_setup_reload_and_unload(hass: HomeAssistant):
         assert hass.data[DOMAIN][all_disabled_entry.entry_id].loaded_platforms == []
         assert await hass.config_entries.async_unload(all_disabled_entry.entry_id)
         assert all_disabled_entry.entry_id not in hass.data[DOMAIN]
+
+
+def test_manifest_and_const_version_match():
+    """manifest.json uses 3-part SemVer matching const.VERSION and STARTUP_MESSAGE."""
+    manifest_path = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "generac"
+        / "manifest.json"
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    version = manifest["version"]
+    assert re.fullmatch(r"\d+\.\d+\.\d+", version), version
+    assert VERSION == version
+    assert f"Version: {version}" in STARTUP_MESSAGE
+
+
+def test_translations_parity_and_options_coverage():
+    """All locales match en.json keys/placeholders and mirror CONF_OPTIONS."""
+    from custom_components.generac.issues import _DEVICE_ISSUE_KEYS
+
+    def _flatten(data: dict, prefix: str = "") -> dict[str, str]:
+        flat: dict[str, str] = {}
+        for key, value in data.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if isinstance(value, dict):
+                flat.update(_flatten(value, path))
+            else:
+                flat[path] = value
+        return flat
+
+    def _placeholders(text: str) -> set[str]:
+        return set(re.findall(r"\{([a-zA-Z0-9_]+)\}", text))
+
+    translations_dir = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "generac"
+        / "translations"
+    )
+    en_data = json.loads((translations_dir / "en.json").read_text(encoding="utf-8"))
+    en_flat = _flatten(en_data)
+    expected_issues = {"refresh_token_expiring", *_DEVICE_ISSUE_KEYS}
+
+    for path in sorted(translations_dir.glob("*.json")):
+        locale_data = json.loads(path.read_text(encoding="utf-8"))
+        locale_flat = _flatten(locale_data)
+        assert set(locale_flat) == set(en_flat), path.name
+        assert set(locale_data["options"]["step"]["user"]["data"]) == set(
+            CONF_OPTIONS
+        ), path.name
+        assert expected_issues.issubset(locale_data["issues"]), path.name
+        for key, en_text in en_flat.items():
+            assert _placeholders(locale_flat[key]) == _placeholders(
+                en_text
+            ), f"{path.name}:{key}"

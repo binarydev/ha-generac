@@ -6,7 +6,11 @@
         "description": "Inicie sessão com a sua conta Mobile Link.",
         "data": {
           "username": "Email",
-          "password": "Palavra-passe"
+          "password": "Palavra-passe",
+          "remember_password": "Memorizar palavra-passe"
+        },
+        "data_description": {
+          "remember_password": "As sessões Generac expiram aproximadamente a cada 90 dias. Se estiver ativado, a palavra-passe é guardada no Home Assistant para que a integração possa voltar a iniciar sessão automaticamente. Não é utilizado em contas que requerem um código de verificação."
         }
       },
       "reconfigure": {
@@ -16,14 +20,24 @@
           "username": "Email",
           "password": "Palavra-passe",
           "scan_interval": "Intervalo de sondagem à cloud (segundos)",
-          "active_scan_interval": "Intervalo de sondagem ativo (segundos)"
+          "active_scan_interval": "Intervalo de sondagem ativo (segundos)",
+          "remember_password": "Memorizar palavra-passe"
+        },
+        "data_description": {
+          "scan_interval": "Intervalo de sondagem à cloud em repouso quando todos os dispositivos estão prontos (mínimo de 10 segundos).",
+          "active_scan_interval": "Intervalo de sondagem rápido utilizado enquanto um gerador está em funcionamento, em exercício, com aviso, a ligar ou em modo boost (mínimo de 10 segundos).",
+          "remember_password": "As sessões Generac expiram aproximadamente a cada 90 dias. Se estiver ativado, a palavra-passe é guardada no Home Assistant para que a integração possa voltar a iniciar sessão automaticamente. Não é utilizado em contas que requerem um código de verificação."
         }
       },
       "reauth_confirm": {
         "title": "Reautenticar Generac MobileLink",
         "description": "A sessão de {username} expirou. Introduza a sua palavra-passe para a atualizar.",
         "data": {
-          "password": "Palavra-passe"
+          "password": "Palavra-passe",
+          "remember_password": "Memorizar palavra-passe"
+        },
+        "data_description": {
+          "remember_password": "As sessões Generac expiram aproximadamente a cada 90 dias. Se estiver ativado, a palavra-passe é guardada no Home Assistant para que a integração possa voltar a iniciar sessão automaticamente. Não é utilizado em contas que requerem um código de verificação."
         }
       },
       "mfa": {
@@ -35,7 +49,7 @@
       }
     },
     "error": {
-      "auth": "Email ou palavra-passe incorretos.",
+      "auth": "Email ou palavra-passe incorretos. Se não redefiniu a sua palavra-passe desde a atualização de segurança da Generac de abril de 2026, inicie sessão primeiro em app.mobilelinkgen.com para redefinir a palavra-passe e aceitar os termos atualizados.",
       "mfa_invalid": "Esse código estava incorreto ou expirou. Introduza o código mais recente ou cancele e comece de novo para obter um novo.",
       "mfa_unsupported": "A sua conta utiliza um método de dois fatores que esta integração não consegue concluir automaticamente (como uma notificação push ou chave de segurança). Aprove o início de sessão na aplicação MobileLink ou mude a sua conta Generac/ecobee para SMS, email ou códigos de aplicação de autenticação e tente novamente.",
       "auth0_unreachable": "Não foi possível contactar auth.ecobee.com. Verifique a rede de saída/DNS do anfitrião HA.",
@@ -70,10 +84,51 @@
           "scan_interval": "Intervalo de sondagem (segundos)",
           "sensor": "Sensores não binários ativados",
           "service_interval_hours": "Intervalo de manutenção (horas, 0 para desativar)",
-          "switch": "Interruptor ativado",
           "weather": "Sensor meteorológico ativado"
+        },
+        "data_description": {
+          "scan_interval": "Intervalo de sondagem à cloud em repouso quando todos os dispositivos estão prontos (mínimo de 10 segundos).",
+          "active_scan_interval": "Intervalo de sondagem rápido utilizado enquanto um gerador está em funcionamento, em exercício, com aviso, a ligar ou em modo boost (mínimo de 10 segundos)."
         }
       }
+    }
+  },
+  "services": {
+    "boost_polling": {
+      "name": "Acelerar sondagem",
+      "description": "Muda temporariamente a sondagem à cloud da Generac para o intervalo ativo e atualiza imediatamente.",
+      "fields": {
+        "duration_minutes": {
+          "name": "Duração",
+          "description": "Durante quanto tempo manter a sondagem rápida, em minutos (1 a 120)."
+        },
+        "entry_id": {
+          "name": "Entrada de configuração",
+          "description": "Entrada de configuração Generac opcional a acelerar. Se omitida, todas as entradas Generac carregadas são aceleradas."
+        }
+      }
+    }
+  },
+  "issues": {
+    "refresh_token_expiring": {
+      "title": "O início de sessão Generac para {username} expira em breve",
+      "description": "As sessões Generac expiram 90 dias após o início de sessão. A sessão de {username} expira por volta de {expires}, após o que os seus dispositivos Generac deixarão de atualizar.\n\nPara a renovar, vá a Definições → Dispositivos e serviços → Generac MobileLink, abra o menu ⋮, escolha **Reconfigurar** e inicie sessão novamente. Marque **Memorizar palavra-passe** para que a integração renove a sessão automaticamente a partir de agora."
+    },
+    "low_battery_voltage": {
+      "title": "Tensão baixa da bateria em {device_name}",
+      "description": "O gerador {device_name} comunicou uma tensão da bateria de {voltage} V, abaixo do limite configurado de {threshold} V. Inspecione a bateria, o carregador e os terminais para garantir um arranque fiável durante uma falha de energia."
+    },
+    "missed_exercise": {
+      "title": "O gerador {device_name} falhou o exercício agendado",
+      "description": "O gerador {device_name} não registou um ciclo de funcionamento ou exercício há {days_since} dias (intervalo de alerta: {interval_days} dias). Verifique se o gerador está em modo Auto e inspecione o calendário de exercícios e a ligação Mobile Link."
+    },
+    "maintenance_due": {
+      "title": "Manutenção necessária para {device_name}",
+      "description": "O gerador {device_name} requer manutenção agendada ({reason}). Após efetuar a manutenção do gerador, prima **Reset Maintenance Timer** na página do dispositivo para repor a contagem decrescente."
+    },
+    "subscription_dunning": {
+      "title": "Problema de faturação da subscrição Mobile Link para {device_name}",
+      "description": "A Generac Mobile Link indica uma subscrição em atraso ou em cobrança para {device_name}. Atualize o seu método de pagamento no portal Mobile Link para evitar a interrupção da monitorização remota."
     }
   }
 }

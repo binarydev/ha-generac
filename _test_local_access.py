@@ -1,48 +1,73 @@
-# This script is a standalone test for the Generac API client.
-# It logs in to the Generac API using credentials from environment variables
-# and prints the device data in JSON format using a custom JSON encoder.
-# Make sure to set the environment variables GENERAC_USER and GENERAC_PASS before running this script
-# to avoid hardcoding sensitive information in the script.
-# This script is intended to be run outside of Home Assistant, for testing purposes.
-# It uses the aiohttp library for asynchronous HTTP requests and custom JSON encoding for dataclasses.
-# Ensure you have aiohttp installed in your environment.
-# If you're using Home Assistant, aiohttp is already included.
-# You can install it using pip: pip install aiohttp
+"""Standalone CLI helper to test GeneracAuth + GeneracApiClient outside HA.
+
+Set GENERAC_USER and GENERAC_PASS in your environment before running:
+
+    GENERAC_USER="you@example.com" GENERAC_PASS="..." python _test_local_access.py
+"""
 import asyncio
 import dataclasses
 import json
 import logging
 import os
+import sys
 
 import aiohttp  # type: ignore
 from custom_components.generac.api import GeneracApiClient
+from custom_components.generac.auth import GeneracAuth
+from custom_components.generac.auth import InvalidMfaCodeError
+from custom_components.generac.auth import MfaRequiredError
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-# Your custom JSON encoder
 class EnhancedJSONEncoder(json.JSONEncoder):
+    """JSON encoder that serializes dataclasses."""
+
     def default(self, o):
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
         return super().default(o)
 
 
-# Async main logic
-async def main():
-    jar = aiohttp.CookieJar(unsafe=True, quote_cookie=False)
-    async with aiohttp.ClientSession(cookie_jar=jar) as session:
-        api = GeneracApiClient(
-            session,
-            os.environ.get("GENERAC_USER", ""),
-            os.environ.get("GENERAC_PASS", ""),
-            os.environ.get("GENERAC_SESSION_COOKIE", ""),
+async def _authenticate(
+    session: aiohttp.ClientSession, email: str, password: str
+) -> GeneracAuth:
+    """Authenticate via Auth0/DPoP, prompting on stdin if code-based MFA is required."""
+    try:
+        return await GeneracAuth.login(session, email, password)
+    except MfaRequiredError as exc:
+        flow = exc.flow
+        try:
+            while True:
+                code = input(f"Enter MFA code ({flow.mfa_type}): ").strip()
+                try:
+                    return await flow.submit_mfa_code(code)
+                except InvalidMfaCodeError as err:
+                    print(f"Invalid MFA code: {err}", file=sys.stderr)
+                except MfaRequiredError as next_exc:
+                    flow = next_exc.flow
+        except BaseException:
+            await flow.aclose()
+            raise
+
+
+async def main() -> None:
+    """Sign in to Mobile Link and print fetched device payloads as JSON."""
+    email = os.environ.get("GENERAC_USER", "").strip()
+    password = os.environ.get("GENERAC_PASS", "")
+    if not email or not password:
+        print(
+            "Please set GENERAC_USER and GENERAC_PASS environment variables.",
+            file=sys.stderr,
         )
-        await api.login()
+        sys.exit(1)
+
+    async with aiohttp.ClientSession() as session:
+        auth = await _authenticate(session, email, password)
+        api = GeneracApiClient(session, auth)
         device_data = await api.get_device_data()
-        print(json.dumps(device_data, cls=EnhancedJSONEncoder))
+        print(json.dumps(device_data, cls=EnhancedJSONEncoder, indent=2))
 
 
-# Run it using asyncio.run (preferred method in Python 3.7+)
 if __name__ == "__main__":
     asyncio.run(main())

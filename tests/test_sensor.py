@@ -266,6 +266,9 @@ async def test_propane_monitor_sensors(hass):
 
     sensor = FuelLevelSensor(coordinator, entry, "12345", item)
     assert sensor.native_value == 50
+    assert sensor.device_class is None
+    assert sensor.icon == "mdi:propane-tank"
+    assert sensor.native_unit_of_measurement == "%"
 
     sensor = FuelTypeSensor(coordinator, entry, "12345", item)
     assert sensor.native_value == "Propane"

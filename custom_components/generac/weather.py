@@ -16,7 +16,7 @@ from .models import Item
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ):
-    """Setup binary_sensor platform."""
+    """Set up weather platform."""
     coordinator: GeneracDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     data = coordinator.data
     if isinstance(data, dict):
