@@ -1,0 +1,140 @@
+blueprint:
+  name: Generac Post-Outage Summary
+  description: >-
+    Wait for a Generac generator outage ("Running", ignoring scheduled
+    "Exercising" cycles) to finish and stabilize in "Ready", then send an
+    All Clear summary with outage duration, estimated fuel used, optional
+    propane fuel autonomy, and hours until service.
+  domain: automation
+  author: ha-generac
+  input:
+    generator_status:
+      name: Generator Status Sensor
+      description: Generac status sensor for your generator.
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    last_outage_duration_sensor:
+      name: Last Outage Duration Sensor
+      description: Generac Last Outage Duration sensor for your generator.
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    hours_until_service_sensor:
+      name: Hours Until Service Sensor (Optional)
+      description: Optional Generac Hours Until Service sensor.
+      default: null
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    remaining_fuel_sensor:
+      name: Remaining Propane Fuel Sensor (Optional)
+      description: Optional Generac propane tank remaining fuel sensor (gal).
+      default: null
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    estimated_runtime_sensor:
+      name: Estimated Runtime Remaining Sensor (Optional)
+      description: Optional Generac propane estimated runtime remaining sensor (h).
+      default: null
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    ready_stabilization_delay:
+      name: Utility Stabilization Delay
+      description: >-
+        Seconds to wait after the generator returns to "Ready" before sending
+        the post-outage summary.
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 600
+          unit_of_measurement: seconds
+    notify_service:
+      name: Notification Service
+      description: >-
+        Home Assistant notify service to call (for example, notify.notify or
+        notify.mobile_app_your_phone).
+      default: notify.notify
+      selector:
+        text: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input generator_status
+    to: "Running"
+
+variables:
+  duration_entity: !input last_outage_duration_sensor
+  service_entity: !input hours_until_service_sensor
+  remaining_fuel_entity: !input remaining_fuel_sensor
+  estimated_runtime_entity: !input estimated_runtime_sensor
+
+actions:
+  - alias: Wait for generator to stabilize in Ready without flapping back to Running
+    repeat:
+      sequence:
+        - alias: Wait for Ready stabilization or outage restart
+          wait_for_trigger:
+            - id: ready
+              trigger: state
+              entity_id: !input generator_status
+              to: "Ready"
+              for:
+                seconds: !input ready_stabilization_delay
+            - id: running_again
+              trigger: state
+              entity_id: !input generator_status
+              to: "Running"
+      until:
+        - condition: template
+          value_template: "{{ wait.trigger is not none and wait.trigger.id == 'ready' }}"
+  - alias: Send post-outage All Clear summary
+    action: !input notify_service
+    data:
+      title: "Generac Post-Outage Summary (All Clear)"
+      message: |-
+        {%- set duration = states(duration_entity) -%}
+        {%- set fuel_used = state_attr(duration_entity, 'estimated_fuel_used') -%}
+        {%- set run_delta = state_attr(duration_entity, 'run_hours_delta') -%}
+        Utility power restored and generator is back in Ready.
+        Outage Duration: {{ duration if duration not in ['unknown', 'unavailable', ''] else 'Unknown' }}{{ ' min' if duration not in ['unknown', 'unavailable', ''] else '' }}
+        {%- if run_delta not in [none, ''] %}
+        Run Hours Added: {{ run_delta }} h
+        {%- endif %}
+        {%- if fuel_used not in [none, ''] %}
+        Estimated Fuel Used: {{ fuel_used }} gal
+        {%- endif %}
+        {%- if remaining_fuel_entity not in [none, ''] %}
+        {%- set remaining_fuel = states(remaining_fuel_entity) %}
+        {%- if remaining_fuel not in ['unknown', 'unavailable', ''] %}
+        Remaining Fuel: {{ remaining_fuel }} gal
+        {%- endif %}
+        {%- endif %}
+        {%- if estimated_runtime_entity not in [none, ''] %}
+        {%- set estimated_runtime = states(estimated_runtime_entity) %}
+        {%- if estimated_runtime not in ['unknown', 'unavailable', ''] %}
+        Estimated Runtime Remaining: {{ estimated_runtime }} h
+        {%- endif %}
+        {%- endif %}
+        {%- if service_entity not in [none, ''] %}
+        {%- set hours_left = states(service_entity) %}
+        {%- if hours_left not in ['unknown', 'unavailable', ''] %}
+        Hours Until Service: {{ hours_left }} h
+        {%- endif %}
+        {%- endif %}

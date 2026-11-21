@@ -28,6 +28,9 @@ from custom_components.generac.sensor import ExerciseMinutesSensor
 from custom_components.generac.sensor import FuelLevelSensor
 from custom_components.generac.sensor import FuelTypeSensor
 from custom_components.generac.sensor import HoursUntilServiceSensor
+from custom_components.generac.sensor import LastExerciseSensor
+from custom_components.generac.sensor import LastOutageDurationSensor
+from custom_components.generac.sensor import LastOutageSensor
 from custom_components.generac.sensor import LastReadingDateSensor
 from custom_components.generac.sensor import LastSeenSensor
 from custom_components.generac.sensor import ModelNumberSensor
@@ -508,6 +511,7 @@ def test_long_term_statistics_state_classes_and_capacity():
         (FuelLevelSensor, propane),
         (RemainingFuelSensor, propane),
         (EstimatedRuntimeSensor, propane),
+        (LastOutageDurationSensor, item),
     ]
     for cls, dev_item in measurement_cases:
         entity = cls(MagicMock(), entry, "1", dev_item)
@@ -568,10 +572,65 @@ def test_entity_categories_diagnostic_vs_primary():
         LastReadingDateSensor,
         DeviceBatteryLevelSensor,
         HoursUntilServiceSensor,
+        LastOutageSensor,
+        LastExerciseSensor,
+        LastOutageDurationSensor,
     ]
     for cls in primary_classes:
         entity = cls(MagicMock(), entry, "1", item)
         assert entity.entity_category is None, cls.__name__
+
+
+def test_session_ledger_sensors():
+    """LastOutage, LastExercise, and LastOutageDuration delegate to coordinator."""
+    from datetime import datetime
+    from datetime import timezone
+
+    outage_dt = datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc)
+    exercise_dt = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
+    coordinator = MagicMock()
+    coordinator.last_outage.return_value = outage_dt
+    coordinator.last_exercise.return_value = exercise_dt
+    coordinator.last_outage_duration_minutes.return_value = 95.5
+    coordinator.last_outage_details.return_value = {
+        "started_at": "2026-11-20T13:24:30+00:00",
+        "ended_at": "2026-11-20T15:00:00+00:00",
+        "run_hours_delta": 1.6,
+        "estimated_fuel_used": 3.52,
+        "inferred": False,
+    }
+    entry = MagicMock()
+    entry.entry_id = "entry"
+
+    gen = get_mock_item(DEVICE_TYPE_GENERATOR, 1)
+    propane = get_mock_item(DEVICE_TYPE_PROPANE_MONITOR, 1)
+    for cls in (LastOutageSensor, LastExerciseSensor, LastOutageDurationSensor):
+        assert cls in sensors(gen)
+        assert cls not in sensors(propane)
+
+    last_outage = LastOutageSensor(coordinator, entry, "1", gen)
+    assert last_outage.device_class == SensorDeviceClass.TIMESTAMP
+    assert last_outage.icon == "mdi:flash-off"
+    assert last_outage.native_value == outage_dt
+
+    last_exercise = LastExerciseSensor(coordinator, entry, "1", gen)
+    assert last_exercise.device_class == SensorDeviceClass.TIMESTAMP
+    assert last_exercise.icon == "mdi:calendar-clock"
+    assert last_exercise.native_value == exercise_dt
+
+    duration = LastOutageDurationSensor(coordinator, entry, "1", gen)
+    assert duration.device_class == SensorDeviceClass.DURATION
+    assert duration.native_unit_of_measurement == UnitOfTime.MINUTES
+    assert duration.state_class == SensorStateClass.MEASUREMENT
+    assert duration.suggested_display_precision == 1
+    assert duration.icon == "mdi:timer-outline"
+    assert duration.native_value == 95.5
+    attrs = duration.extra_state_attributes
+    assert attrs["started_at"] == "2026-11-20T13:24:30+00:00"
+    assert attrs["ended_at"] == "2026-11-20T15:00:00+00:00"
+    assert attrs["run_hours_delta"] == 1.6
+    assert attrs["estimated_fuel_used"] == 3.52
+    assert attrs["inferred"] is False
 
 
 def test_remaining_fuel_and_estimated_runtime():

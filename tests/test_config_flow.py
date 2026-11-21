@@ -175,6 +175,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         "weather": True,
         "image": True,
         "button": True,
+        "event": True,
         "scan_interval": 120,
         "active_scan_interval": 60,
         "fuel_burn_rate": 2.2,

@@ -347,6 +347,7 @@ async def test_setup_entry_installs_bundled_blueprints(
     assert sorted(p.name for p in bp_dir.glob("*.yaml")) == [
         "generac_fault_dealer_alert.yaml",
         "generac_outage_load_shedding.yaml",
+        "generac_post_outage_summary.yaml",
         "generac_storm_readiness_digest.yaml",
     ]
 
@@ -533,24 +534,31 @@ async def test_platform_toggles_setup_reload_and_unload(hass: HomeAssistant):
         await hass.async_block_till_done()
 
         coordinator = hass.data[DOMAIN][entry.entry_id]
-        assert coordinator.loaded_platforms == ["binary_sensor", "sensor", "image"]
+        assert coordinator.loaded_platforms == [
+            "binary_sensor",
+            "sensor",
+            "image",
+            "event",
+        ]
         registry = er.async_get(hass)
         domains = {
             e.domain
             for e in er.async_entries_for_config_entry(registry, entry.entry_id)
         }
-        assert domains == {"binary_sensor", "sensor", "image"}
+        assert domains == {"binary_sensor", "sensor", "image", "event"}
 
-        # Toggling button back on and image off unloads old platforms cleanly and loads new set
+        # Toggling button back on and image/event off unloads old platforms cleanly
         hass.config_entries.async_update_entry(
             entry,
-            options={"button": True, "weather": False, "image": False},
+            options={"button": True, "weather": False, "image": False, "event": False},
         )
         await hass.async_block_till_done()
         coordinator2 = hass.data[DOMAIN][entry.entry_id]
         assert coordinator2.loaded_platforms == ["binary_sensor", "sensor", "button"]
         assert hass.states.get("button.home_gen_outage_boost_poll") is not None
         assert hass.states.get("weather.home_gen_weather") is None
+        unloaded_event = hass.states.get("event.home_gen_activity")
+        assert unloaded_event is not None and unloaded_event.state == "unavailable"
 
         assert await hass.config_entries.async_unload(entry.entry_id)
         assert entry.entry_id not in hass.data[DOMAIN]

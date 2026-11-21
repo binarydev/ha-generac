@@ -83,9 +83,17 @@ HISTORICAL_SUFFIXES = {
 # Entities this change adds for the fixture payloads below.
 NEW_SUFFIXES = {
     GENERATOR_ID: {
-        "sensor": ["exercise_minutes", "error_code", "hours_until_service"],
+        "sensor": [
+            "exercise_minutes",
+            "error_code",
+            "hours_until_service",
+            "last_outage",
+            "last_exercise",
+            "last_outage_duration",
+        ],
         "binary_sensor": ["missed_exercise"],
         "button": ["reset_service_timer", "boost_polling"],
+        "event": ["activity"],
     },
     PROPANE_ID: {
         "sensor": [
@@ -291,6 +299,12 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
             "button.generator_outage_boost_poll"
         ),
         _unique_id(GENERATOR_ID, "error_code"): "sensor.generator_error_code",
+        _unique_id(GENERATOR_ID, "last_outage"): "sensor.generator_last_outage",
+        _unique_id(GENERATOR_ID, "last_exercise"): "sensor.generator_last_exercise",
+        _unique_id(GENERATOR_ID, "last_outage_duration"): (
+            "sensor.generator_last_outage_duration"
+        ),
+        _unique_id(GENERATOR_ID, "activity"): "event.generator_activity",
         _unique_id(
             PROPANE_ID, "signal_strength"
         ): "sensor.propane_tank_signal_strength",
@@ -310,6 +324,10 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
     )
     assert hass.states.get("button.generator_outage_boost_poll").state == "unknown"
     assert hass.states.get("sensor.generator_error_code").state == "unknown"
+    assert hass.states.get("sensor.generator_last_outage").state == "unknown"
+    assert hass.states.get("sensor.generator_last_exercise").state == "unknown"
+    assert hass.states.get("sensor.generator_last_outage_duration").state == "unknown"
+    assert hass.states.get("event.generator_activity").state == "unknown"
     assert hass.states.get("sensor.propane_tank_signal_strength").state == "60.0"
     assert hass.states.get("sensor.propane_tank_device_battery_level").state == "80.0"
     remaining_state = hass.states.get("sensor.propane_tank_remaining_fuel")
@@ -343,6 +361,22 @@ async def test_upgrade_reuses_every_existing_registry_entry(hass: HomeAssistant)
     )
     assert (
         devices[_unique_id(GENERATOR_ID, "error_code")]
+        == devices[_unique_id(GENERATOR_ID, "status")]
+    )
+    assert (
+        devices[_unique_id(GENERATOR_ID, "last_outage")]
+        == devices[_unique_id(GENERATOR_ID, "status")]
+    )
+    assert (
+        devices[_unique_id(GENERATOR_ID, "last_exercise")]
+        == devices[_unique_id(GENERATOR_ID, "status")]
+    )
+    assert (
+        devices[_unique_id(GENERATOR_ID, "last_outage_duration")]
+        == devices[_unique_id(GENERATOR_ID, "status")]
+    )
+    assert (
+        devices[_unique_id(GENERATOR_ID, "activity")]
         == devices[_unique_id(GENERATOR_ID, "status")]
     )
     assert (
@@ -425,6 +459,7 @@ def test_every_entity_class_declares_its_own_stable_key():
     """No entity class may inherit or infer its unique_id suffix."""
     from custom_components.generac import binary_sensor
     from custom_components.generac import button
+    from custom_components.generac import event
     from custom_components.generac import image
     from custom_components.generac import sensor
     from custom_components.generac import weather
@@ -432,13 +467,13 @@ def test_every_entity_class_declares_its_own_stable_key():
 
     classes = [
         obj
-        for module in (binary_sensor, button, image, sensor, weather)
+        for module in (binary_sensor, button, event, image, sensor, weather)
         for obj in vars(module).values()
         if isinstance(obj, type)
         and issubclass(obj, GeneracEntity)
         and obj is not GeneracEntity
     ]
-    assert len(classes) == 44
+    assert len(classes) == 48
     keys = {}
     for cls in classes:
         assert "entity_key" in vars(cls), cls.__name__

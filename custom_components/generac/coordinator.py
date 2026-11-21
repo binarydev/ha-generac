@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import deque
 from collections.abc import Mapping
+from datetime import datetime
 from datetime import timedelta
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -36,6 +39,7 @@ _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 _ACTIVE_GENERATOR_STATUSES = frozenset({2, 3, 4})
 _MIN_SCAN_INTERVAL_SECONDS = 10
+_MAX_BUFFERED_EVENTS_PER_DEVICE = 50
 
 
 def _read_interval(options: Mapping, key: str, default: int) -> int:
@@ -82,6 +86,8 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         self.pending_credential_updates: int = 0
         self.loaded_platforms: list[str] = []
         self.readiness = ReadinessTracker(hass, config_entry)
+        self._event_seq: int = 0
+        self._device_events: dict[str, deque[tuple[int, str, dict[str, Any]]]] = {}
         options = entry_options(config_entry)
         self.idle_scan_interval = _read_interval(
             options, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
@@ -100,6 +106,32 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
             config_entry=config_entry,
         )
 
+    @property
+    def event_seq(self) -> int:
+        """Return the latest monotonic activity event sequence number."""
+        return self._event_seq
+
+    def _record_device_events(
+        self, emitted: dict[str, list[tuple[str, dict[str, Any]]]]
+    ) -> None:
+        """Append emitted poll events into the bounded per-device ring buffer."""
+        for device_id, events in emitted.items():
+            buf = self._device_events.setdefault(
+                device_id, deque(maxlen=_MAX_BUFFERED_EVENTS_PER_DEVICE)
+            )
+            for event_type, payload in events:
+                self._event_seq += 1
+                buf.append((self._event_seq, event_type, dict(payload)))
+
+    def get_events_since(
+        self, device_id: str, last_seq: int
+    ) -> list[tuple[int, str, dict[str, Any]]]:
+        """Return buffered activity events for a device strictly newer than last_seq."""
+        buf = self._device_events.get(device_id)
+        if not buf:
+            return []
+        return [entry for entry in buf if entry[0] > last_seq]
+
     def hours_since_service(self, device_id: str) -> float | None:
         """Return runtime hours elapsed since the generator's maintenance baseline."""
         return self.readiness.hours_since_service(device_id)
@@ -111,6 +143,22 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
     def is_missed_exercise(self, device_id: str, now: float | None = None) -> bool:
         """Return True if the generator's scheduled exercise window appears missed."""
         return self.readiness.is_missed_exercise(device_id, now=now)
+
+    def last_outage(self, device_id: str) -> datetime | None:
+        """Return UTC timestamp of the generator's last observed or inferred outage."""
+        return self.readiness.last_outage(device_id)
+
+    def last_exercise(self, device_id: str) -> datetime | None:
+        """Return UTC timestamp of the generator's last observed or inferred exercise."""
+        return self.readiness.last_exercise(device_id)
+
+    def last_outage_duration_minutes(self, device_id: str) -> float | None:
+        """Return duration in minutes of the generator's last completed outage."""
+        return self.readiness.last_outage_duration_minutes(device_id)
+
+    def last_outage_details(self, device_id: str) -> dict[str, Any] | None:
+        """Return formatted metadata for the generator's last completed outage."""
+        return self.readiness.last_outage_details(device_id)
 
     async def async_reset_service_timer(self, device_id: str) -> None:
         """Reset maintenance baseline to current run time, re-evaluate alerts, and notify."""
@@ -187,7 +235,9 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
             self._apply_polling_interval(mode)
             await self.readiness.async_load()
             if isinstance(items, dict):
-                await self.readiness.async_update_from_items(items)
+                emitted = await self.readiness.async_update_from_items(items)
+                if emitted:
+                    self._record_device_events(emitted)
             async_update_token_expiry_issue(self.hass, self._config_entry)
             async_update_device_health_issues(
                 self.hass, self._config_entry, items, self.readiness
