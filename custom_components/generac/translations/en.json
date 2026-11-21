@@ -84,7 +84,6 @@
           "scan_interval": "Cloud polling interval (seconds)",
           "sensor": "Non-binary sensors enabled",
           "service_interval_hours": "Maintenance service interval (hours, 0 to disable)",
-          "switch": "Switch enabled",
           "weather": "Weather sensor enabled"
         },
         "data_description": {

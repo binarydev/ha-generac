@@ -6,7 +6,11 @@
         "description": "Logg på med din Mobile Link-konto.",
         "data": {
           "username": "E-post",
-          "password": "Passord"
+          "password": "Passord",
+          "remember_password": "Husk passord"
+        },
+        "data_description": {
+          "remember_password": "Generac-økter utløper omtrent hver 90. dag. Hvis dette er aktivert, lagres passordet i Home Assistant slik at integrasjonen kan logge på igjen automatisk. Brukes ikke for kontoer som krever bekreftelseskode."
         }
       },
       "reconfigure": {
@@ -16,14 +20,24 @@
           "username": "E-post",
           "password": "Passord",
           "scan_interval": "Intervall for skyavstemning (sekunder)",
-          "active_scan_interval": "Aktivt avstemningsintervall (sekunder)"
+          "active_scan_interval": "Aktivt avstemningsintervall (sekunder)",
+          "remember_password": "Husk passord"
+        },
+        "data_description": {
+          "scan_interval": "Avstemningsintervall i hvilemodus når alle enheter er klare (minimum 10 sekunder).",
+          "active_scan_interval": "Raskt avstemningsintervall som brukes mens en generator kjører, testkjører, har advarsel, kobler til eller er i boost-modus (minimum 10 sekunder).",
+          "remember_password": "Generac-økter utløper omtrent hver 90. dag. Hvis dette er aktivert, lagres passordet i Home Assistant slik at integrasjonen kan logge på igjen automatisk. Brukes ikke for kontoer som krever bekreftelseskode."
         }
       },
       "reauth_confirm": {
         "title": "Reautentiser Generac MobileLink",
         "description": "Økten for {username} har utløpt. Skriv inn passordet ditt for å oppdatere den.",
         "data": {
-          "password": "Passord"
+          "password": "Passord",
+          "remember_password": "Husk passord"
+        },
+        "data_description": {
+          "remember_password": "Generac-økter utløper omtrent hver 90. dag. Hvis dette er aktivert, lagres passordet i Home Assistant slik at integrasjonen kan logge på igjen automatisk. Brukes ikke for kontoer som krever bekreftelseskode."
         }
       },
       "mfa": {
@@ -35,7 +49,7 @@
       }
     },
     "error": {
-      "auth": "Ugyldig e-post eller passord.",
+      "auth": "Ugyldig e-post eller passord. Hvis du ikke har tilbakestilt passordet ditt siden Generacs sikkerhetsoppdatering i april 2026, logg på app.mobilelinkgen.com først for å tilbakestille passordet og godta eventuelle oppdaterte vilkår.",
       "mfa_invalid": "Koden var feil eller har utløpt. Skriv inn den nyeste koden, eller avbryt og start på nytt for å få en ny.",
       "mfa_unsupported": "Kontoen din bruker en tofaktor-metode som denne integrasjonen ikke kan fullføre automatisk (for eksempel et push-varsel eller en sikkerhetsnøkkel). Godkjenn påloggingen i MobileLink-appen, eller bytt Generac/ecobee-kontoen din til SMS, e-post eller koder fra autentiseringsapp, og prøv igjen.",
       "auth0_unreachable": "Kunne ikke nå auth.ecobee.com. Sjekk HA-vertens utgående nettverk/DNS.",
@@ -70,10 +84,51 @@
           "scan_interval": "Avstemningsintervall i sekunder",
           "sensor": "Sensor aktivert",
           "service_interval_hours": "Serviceintervall for vedlikehold (timer, 0 for å deaktivere)",
-          "switch": "Bryter aktivert",
           "weather": "Værsensor aktivert"
+        },
+        "data_description": {
+          "scan_interval": "Avstemningsintervall i hvilemodus når alle enheter er klare (minimum 10 sekunder).",
+          "active_scan_interval": "Raskt avstemningsintervall som brukes mens en generator kjører, testkjører, har advarsel, kobler til eller er i boost-modus (minimum 10 sekunder)."
         }
       }
+    }
+  },
+  "services": {
+    "boost_polling": {
+      "name": "Boost avstemning",
+      "description": "Bytter midlertidig Generac-skyavstemning til det aktive intervallet og oppdaterer umiddelbart.",
+      "fields": {
+        "duration_minutes": {
+          "name": "Varighet",
+          "description": "Hvor lenge rask boost-avstemning skal opprettholdes, i minutter (1 til 120)."
+        },
+        "entry_id": {
+          "name": "Konfigurasjonsoppføring",
+          "description": "Valgfri Generac-konfigurasjonsoppføring som skal boostes. Hvis utelatt, boostes alle innlastede Generac-oppføringer."
+        }
+      }
+    }
+  },
+  "issues": {
+    "refresh_token_expiring": {
+      "title": "Generac-påloggingen for {username} utløper snart",
+      "description": "Generac-økter utløper 90 dager etter pålogging. Økten for {username} utløper rundt {expires}, og deretter slutter Generac-enhetene dine å oppdatere.\n\nFor å fornye den, gå til Innstillinger → Enheter og tjenester → Generac MobileLink, åpne ⋮-menyen, velg **Rekonfigurer** og logg på igjen. Kryss av for **Husk passord** for at integrasjonen skal fornye økten automatisk fremover."
+    },
+    "low_battery_voltage": {
+      "title": "Lav batterispenning på {device_name}",
+      "description": "Generatoren {device_name} rapporterte en batterispenning på {voltage} V, under den konfigurerte terskelen på {threshold} V. Kontroller batteriet, laderen og polene for å sikre pålitelig start ved strømbrudd."
+    },
+    "missed_exercise": {
+      "title": "Generator {device_name} gikk glipp av planlagt testkjøring",
+      "description": "Generatoren {device_name} har ikke registrert noen kjøre- eller testkjøringssyklus på {days_since} dager (varselintervall: {interval_days} dager). Kontroller at generatoren står i Auto-modus og sjekk testkjøringsplanen og Mobile Link-tilkoblingen."
+    },
+    "maintenance_due": {
+      "title": "Vedlikehold forfaller for {device_name}",
+      "description": "Generatoren {device_name} krever planlagt vedlikehold ({reason}). Etter utført service på generatoren, trykk på **Reset Maintenance Timer** på enhetssiden for å tilbakestille nedtellingen."
+    },
+    "subscription_dunning": {
+      "title": "Faktureringsproblem for Mobile Link-abonnementet til {device_name}",
+      "description": "Generac Mobile Link rapporterer et forfalt abonnement eller purrestatus for {device_name}. Oppdater betalingsmåten din i Mobile Link-portalen for å unngå avbrudd i fjernovervåkingen."
     }
   }
 }

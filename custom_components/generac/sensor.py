@@ -31,7 +31,7 @@ from .utils import safe_float as _safe_float
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ):
-    """Setup binary_sensor platform."""
+    """Set up sensor platform."""
     coordinator: GeneracDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     data = coordinator.data
     if isinstance(data, dict):
@@ -585,7 +585,7 @@ class FuelLevelSensor(GeneracEntity, SensorEntity):
     entity_key = "fuel_level"
 
     _attr_state_class = SensorStateClass.MEASUREMENT
-    device_class = SensorDeviceClass.BATTERY
+    _attr_icon = "mdi:propane-tank"
     native_unit_of_measurement = PERCENTAGE
 
     @property
