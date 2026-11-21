@@ -3,7 +3,8 @@ blueprint:
   description: >-
     When a weather alert or storm readiness trigger turns on, send a summary of
     your generator's readiness including status, connectivity, battery voltage,
-    hours until service, and optional propane tank fuel level.
+    hours until service, and optional propane tank fuel level, remaining fuel,
+    and estimated runtime.
   domain: automation
   author: ha-generac
   input:
@@ -46,7 +47,25 @@ blueprint:
     fuel_level_sensor:
       name: Propane Fuel Level Sensor (Optional)
       description: Optional Generac propane tank monitor fuel level sensor.
-      default: ""
+      default: null
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    remaining_fuel_sensor:
+      name: Remaining Propane Fuel Sensor (Optional)
+      description: Optional Generac propane tank remaining fuel sensor (gal).
+      default: null
+      selector:
+        entity:
+          filter:
+            - integration: generac
+              domain: sensor
+    estimated_runtime_sensor:
+      name: Estimated Runtime Remaining Sensor (Optional)
+      description: Optional Generac propane estimated runtime remaining sensor (h).
+      default: null
       selector:
         entity:
           filter:
@@ -74,18 +93,35 @@ variables:
   connected_entity: !input is_connected_sensor
   service_entity: !input hours_until_service_sensor
   fuel_entity: !input fuel_level_sensor
+  remaining_fuel_entity: !input remaining_fuel_sensor
+  estimated_runtime_entity: !input estimated_runtime_sensor
 
 actions:
   - alias: Send pre-storm generator readiness digest
     action: !input notify_service
     data:
       title: "Generac Pre-Storm Readiness Digest"
-      message: >-
-        {% set connected = is_state(connected_entity, 'on') %}
+      message: |-
+        {%- set connected = is_state(connected_entity, 'on') -%}
         Status: {{ states(status_entity) }}
         Connected: {{ 'Online' if connected else 'Offline' }}
         Battery Voltage: {{ states(battery_entity) }} V
         Hours Until Service: {{ states(service_entity) }} h
-        {% if fuel_entity %}
-        Propane Fuel Level: {{ states(fuel_entity) }}%
-        {% endif %}
+        {%- if fuel_entity not in [none, ''] %}
+        {%- set fuel_level = states(fuel_entity) %}
+        {%- if fuel_level not in ['unknown', 'unavailable', ''] %}
+        Propane Fuel Level: {{ fuel_level }}%
+        {%- endif %}
+        {%- endif %}
+        {%- if remaining_fuel_entity not in [none, ''] %}
+        {%- set remaining_fuel = states(remaining_fuel_entity) %}
+        {%- if remaining_fuel not in ['unknown', 'unavailable', ''] %}
+        Remaining Fuel: {{ remaining_fuel }} gal
+        {%- endif %}
+        {%- endif %}
+        {%- if estimated_runtime_entity not in [none, ''] %}
+        {%- set estimated_runtime = states(estimated_runtime_entity) %}
+        {%- if estimated_runtime not in ['unknown', 'unavailable', ''] %}
+        Estimated Runtime: {{ estimated_runtime }} h
+        {%- endif %}
+        {%- endif %}

@@ -172,5 +172,5 @@ class WeatherSensor(GeneracEntity, WeatherEntity):
             or self.aparatus.weather.temperature is None
             or self.aparatus.weather.temperature.value is None
         ):
-            return 0
+            return None
         return self.aparatus.weather.temperature.value

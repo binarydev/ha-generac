@@ -30,19 +30,17 @@ from .models import Item
 from .readiness import get_run_time
 from .readiness import ReadinessTracker
 from .utils import entry_options
+from .utils import safe_int_option
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
-_ACTIVE_GENERATOR_STATUSES = frozenset({2, 3, 4, 5})
+_ACTIVE_GENERATOR_STATUSES = frozenset({2, 3, 4})
 _MIN_SCAN_INTERVAL_SECONDS = 10
 
 
 def _read_interval(options: Mapping, key: str, default: int) -> int:
     """Read an integer polling interval from options and clamp to >= 10 s."""
-    raw = options.get(key, default)
-    if raw is None:
-        raw = default
-    return max(_MIN_SCAN_INTERVAL_SECONDS, int(raw))
+    return safe_int_option(options, key, default, min_value=_MIN_SCAN_INTERVAL_SECONDS)
 
 
 def _is_fleet_active(items: dict[str, Item] | None) -> bool:
@@ -82,6 +80,7 @@ class GeneracDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Item]]):
         self.reload_signature: tuple[dict, dict] | None = None
         self.persisted_credentials: tuple[str | None, str | None] | None = None
         self.pending_credential_updates: int = 0
+        self.loaded_platforms: list[str] = []
         self.readiness = ReadinessTracker(hass, config_entry)
         options = entry_options(config_entry)
         self.idle_scan_interval = _read_interval(

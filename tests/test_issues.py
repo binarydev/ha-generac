@@ -281,3 +281,34 @@ async def test_subscription_dunning_and_entry_cleanup(hass: HomeAssistant) -> No
     assert _device_issue(hass, "low_battery_voltage", entry, "101") is None
     assert _device_issue(hass, "subscription_dunning", entry, "101") is None
     assert _device_issue(hass, "low_battery_voltage", other_entry, "101") is not None
+
+
+async def test_propane_maintenance_alert_ignored_and_bad_options_tolerated(
+    hass: HomeAssistant,
+) -> None:
+    """Propane monitors do not raise generator-worded maintenance_due, and bad options do not crash."""
+    entry = _entry(
+        hass,
+        entry_id="edge_issues",
+        options={
+            CONF_LOW_BATTERY_THRESHOLD: None,
+            CONF_EXERCISE_INTERVAL_DAYS: "not-an-int",
+            CONF_SERVICE_INTERVAL_HOURS: True,
+        },
+    )
+    propane = Item(
+        apparatus=Apparatus(
+            apparatusId=202, name="Propane Tank", type=DEVICE_TYPE_PROPANE_MONITOR
+        ),
+        apparatusDetail=ApparatusDetail(
+            apparatusId=202, name="Propane Tank", hasMaintenanceAlert=True
+        ),
+    )
+    gen_low_batt = _make_generator(battery_voltage="11.5")
+
+    async_update_device_health_issues(
+        hass, entry, {"202": propane, "101": gen_low_batt}
+    )
+
+    assert _device_issue(hass, "maintenance_due", entry, "202") is None
+    assert _device_issue(hass, "low_battery_voltage", entry, "101") is not None

@@ -29,6 +29,8 @@ from .models import Item
 from .readiness import get_battery_voltage
 from .readiness import ReadinessTracker
 from .utils import entry_options
+from .utils import safe_float_option
+from .utils import safe_int_option
 
 _DAY = 86400
 
@@ -112,14 +114,23 @@ def async_update_device_health_issues(
         return
 
     options = entry_options(entry)
-    low_battery_threshold = float(
-        options.get(CONF_LOW_BATTERY_THRESHOLD, DEFAULT_LOW_BATTERY_THRESHOLD)
+    low_battery_threshold = safe_float_option(
+        options,
+        CONF_LOW_BATTERY_THRESHOLD,
+        DEFAULT_LOW_BATTERY_THRESHOLD,
+        min_value=0.0,
     )
-    exercise_interval_days = int(
-        options.get(CONF_EXERCISE_INTERVAL_DAYS, DEFAULT_EXERCISE_INTERVAL_DAYS)
+    exercise_interval_days = safe_int_option(
+        options,
+        CONF_EXERCISE_INTERVAL_DAYS,
+        DEFAULT_EXERCISE_INTERVAL_DAYS,
+        min_value=0,
     )
-    service_interval_hours = int(
-        options.get(CONF_SERVICE_INTERVAL_HOURS, DEFAULT_SERVICE_INTERVAL_HOURS)
+    service_interval_hours = safe_int_option(
+        options,
+        CONF_SERVICE_INTERVAL_HOURS,
+        DEFAULT_SERVICE_INTERVAL_HOURS,
+        min_value=0,
     )
 
     active_issue_ids: set[str] = set()
@@ -212,7 +223,7 @@ def async_update_device_health_issues(
             and hours_since is not None
             and hours_since >= service_interval_hours
         )
-        api_alert = detail.hasMaintenanceAlert is True
+        api_alert = is_generator and detail.hasMaintenanceAlert is True
         maint_due = timer_due or api_alert
         if maint_due:
             if timer_due and api_alert and hours_since is not None:

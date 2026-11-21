@@ -249,7 +249,7 @@ class RunTimeSensor(GeneracEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        val = get_prop_value(self.aparatus_detail.properties, 71, 0)
+        val = get_prop_value(self.aparatus_detail.properties, 71, None)
         return _safe_float(val, "run_time")
 
 
@@ -265,7 +265,7 @@ class ProtectionTimeSensor(GeneracEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        val = get_prop_value(self.aparatus_detail.properties, 32, 0)
+        val = get_prop_value(self.aparatus_detail.properties, 32, None)
         return _safe_float(val, "protection_time")
 
 
@@ -333,7 +333,7 @@ class BatteryVoltageSensor(GeneracEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        val = get_prop_value(self.aparatus_detail.properties, 70, 0)
+        val = get_prop_value(self.aparatus_detail.properties, 70, None)
         return _safe_float(val, "battery_voltage")
 
 
@@ -381,7 +381,7 @@ class OutdoorTemperatureSensor(GeneracEntity, SensorEntity):
             or self.aparatus_detail.weather.temperature is None
             or self.aparatus_detail.weather.temperature.value is None
         ):
-            return 0
+            return None
         return self.aparatus_detail.weather.temperature.value
 
 
@@ -522,7 +522,7 @@ class CapacitySensor(GeneracEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        val = get_prop_value(self.aparatus_detail.tuProperties, 1, 0)
+        val = get_prop_value(self.aparatus_detail.tuProperties, 1, None)
         return _safe_float(val, "capacity")
 
 

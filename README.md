@@ -79,7 +79,7 @@ To stay gentle on Generac's rate-limited cloud API during normal standby while r
 - **Idle polling interval (`scan_interval`)**: Default `900` seconds (15 minutes). Used when all devices are idle/ready.
 - **Active polling interval (`active_scan_interval`)**: Default `120` seconds (2 minutes), capped at `min(scan_interval, active_scan_interval)` so fast polling never slows down a shorter idle interval.
 
-Fast polling activates automatically whenever any generator is **Running**, **Exercising**, **Warning**, or **Stopped**, or when any device reports `isConnecting`, `showWarning`, or `isRunning`. After the fleet returns to idle, fast polling remains active for a `300`-second (5-minute) cooldown before returning to the idle interval.
+Fast polling activates automatically whenever any generator is **Running**, **Exercising**, or **Warning**, or when any device reports `isConnecting`, `showWarning`, or `isRunning`. After the fleet returns to idle, fast polling remains active for a `300`-second (5-minute) cooldown before returning to the idle interval.
 
 You can also trigger fast polling manually (for example, from an automation triggered by a utility power-loss sensor) using either:
 
@@ -112,9 +112,9 @@ Each generator automatically tracks exercise activity and maintenance runtime ba
 
 When the integration sets up, three ready-to-use automation blueprints are automatically installed to `<config>/blueprints/automation/generac/`:
 
-1. **Generac Outage Load Shedding** (`generac_outage_load_shedding.yaml`) — Sheds high-draw entities when status transitions to `Running` (ignoring `Exercising` cycles), waits for `Ready` stabilization, and optionally restores loads with a stagger delay.
-2. **Generac Fault & Dealer Contact Alert** (`generac_fault_dealer_alert.yaml`) — Sends a notification populated with generator status, diagnostic `status_text`, and your preferred dealer's name and phone number on `Warning`, `Stopped`, `Communication Issue`, warning, or maintenance alerts.
-3. **Generac Pre-Storm Readiness Digest** (`generac_storm_readiness_digest.yaml`) — Sends a readiness digest with status, connectivity, battery voltage, hours until service, and optional propane fuel level when a weather alert or trigger entity turns `on`.
+1. **Generac Outage Load Shedding** (`generac_outage_load_shedding.yaml`) — Sheds high-draw entities when status transitions to `Running` (ignoring `Exercising` cycles), waits for `Ready` stabilization, and optionally restores previously active loads with a stagger delay.
+2. **Generac Fault & Dealer Contact Alert** (`generac_fault_dealer_alert.yaml`) — Sends a notification populated with generator status, diagnostic `status_text`, optional `error_code`, and your preferred dealer's name and phone number on `Warning`, `Stopped`, `Communication Issue`, warning, or maintenance alerts.
+3. **Generac Pre-Storm Readiness Digest** (`generac_storm_readiness_digest.yaml`) — Sends a readiness digest with status, connectivity, battery voltage, hours until service, and optional propane fuel level, remaining fuel, and estimated runtime when a weather alert or trigger entity turns `on`.
 
 ## Username + Password Authentication
 

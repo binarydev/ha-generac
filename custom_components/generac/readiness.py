@@ -1,6 +1,7 @@
 """Service and exercise readiness persistence and tracking for Generac."""
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -20,6 +21,7 @@ from .models import Item
 from .utils import entry_options
 from .utils import get_detail_property_value
 from .utils import safe_float
+from .utils import safe_int_option
 
 STORAGE_VERSION = 1
 _ACTIVE_APPARATUS_STATUSES = (2, 3)  # Running (2), Exercising (3)
@@ -63,33 +65,35 @@ class ReadinessTracker:
         )
         self._devices: dict[str, dict[str, Any]] = {}
         self._loaded = False
+        self._load_lock = asyncio.Lock()
 
     async def async_load(self) -> None:
         """Load persisted readiness records once."""
         if self._loaded:
             return
-        self._loaded = True
-        if self._store is None:
-            return
-        raw = await self._store.async_load()
-        if not isinstance(raw, dict):
-            return
-        devices = raw.get("devices")
-        if not isinstance(devices, dict):
-            return
-        for dev_id, rec in devices.items():
-            if not isinstance(rec, dict):
-                continue
-            last_ts = safe_float(rec.get("last_exercise_ts"))
-            if last_ts is None:
-                continue
-            last_rt = safe_float(rec.get("last_run_time"))
-            baseline = safe_float(rec.get("service_baseline_hours"))
-            self._devices[str(dev_id)] = {
-                "last_exercise_ts": last_ts,
-                "last_run_time": last_rt,
-                "service_baseline_hours": baseline if baseline is not None else 0.0,
-            }
+        async with self._load_lock:
+            if self._loaded:
+                return
+            if self._store is not None:
+                raw = await self._store.async_load()
+                devices = raw.get("devices") if isinstance(raw, dict) else None
+                if isinstance(devices, dict):
+                    for dev_id, rec in devices.items():
+                        if not isinstance(rec, dict):
+                            continue
+                        last_ts = safe_float(rec.get("last_exercise_ts"))
+                        if last_ts is None:
+                            continue
+                        last_rt = safe_float(rec.get("last_run_time"))
+                        baseline = safe_float(rec.get("service_baseline_hours"))
+                        if last_rt is None and baseline == 0.0:
+                            baseline = None
+                        self._devices[str(dev_id)] = {
+                            "last_exercise_ts": last_ts,
+                            "last_run_time": last_rt,
+                            "service_baseline_hours": baseline,
+                        }
+            self._loaded = True
 
     async def _async_save(self) -> None:
         """Persist current readiness state to Store."""
@@ -127,28 +131,43 @@ class ReadinessTracker:
             current_run_time = get_run_time(item)
 
             if device_id not in self._devices:
-                # Initialize baseline to current run hours to prevent false day-1 alarms.
+                # Initialize baseline to current run hours once known to prevent false day-1 alarms.
                 self._devices[device_id] = {
                     "last_exercise_ts": ts,
                     "last_run_time": current_run_time,
-                    "service_baseline_hours": (
-                        current_run_time if current_run_time is not None else 0.0
-                    ),
+                    "service_baseline_hours": current_run_time,
                 }
                 changed = True
                 continue
 
             record = self._devices[device_id]
+            if (
+                record.get("service_baseline_hours") is None
+                and current_run_time is not None
+            ):
+                record["service_baseline_hours"] = current_run_time
+                changed = True
             prev_run_time = record.get("last_run_time")
-            exercised = detail.apparatusStatus in _ACTIVE_APPARATUS_STATUSES or (
+            is_transient_zero_dip = (
                 current_run_time is not None
+                and current_run_time == 0.0
+                and prev_run_time is not None
+                and prev_run_time > 0.0
+            )
+            exercised = detail.apparatusStatus in _ACTIVE_APPARATUS_STATUSES or (
+                not is_transient_zero_dip
+                and current_run_time is not None
                 and prev_run_time is not None
                 and current_run_time > prev_run_time
             )
             if exercised:
                 record["last_exercise_ts"] = ts
                 changed = True
-            if current_run_time is not None and current_run_time != prev_run_time:
+            if (
+                not is_transient_zero_dip
+                and current_run_time is not None
+                and current_run_time != prev_run_time
+            ):
                 record["last_run_time"] = current_run_time
                 changed = True
 
@@ -161,17 +180,20 @@ class ReadinessTracker:
         if record is None:
             return None
         last_run_time = record.get("last_run_time")
-        if last_run_time is None:
+        baseline = record.get("service_baseline_hours")
+        if last_run_time is None or baseline is None:
             return None
-        baseline = float(record.get("service_baseline_hours") or 0.0)
-        return round(max(0.0, float(last_run_time) - baseline), 4)
+        return round(max(0.0, float(last_run_time) - float(baseline)), 4)
 
     def hours_until_service(self, device_id: str) -> float | None:
         """Return estimated runtime hours remaining until scheduled maintenance."""
-        interval = entry_options(self._entry).get(
-            CONF_SERVICE_INTERVAL_HOURS, DEFAULT_SERVICE_INTERVAL_HOURS
+        interval = safe_int_option(
+            entry_options(self._entry),
+            CONF_SERVICE_INTERVAL_HOURS,
+            DEFAULT_SERVICE_INTERVAL_HOURS,
+            min_value=0,
         )
-        if interval is None or interval <= 0:
+        if interval <= 0:
             return None
         since = self.hours_since_service(device_id)
         if since is None:
@@ -193,10 +215,13 @@ class ReadinessTracker:
 
     def is_missed_exercise(self, device_id: str, now: float | None = None) -> bool:
         """Return True if elapsed time since last exercise exceeds the configured window."""
-        interval_days = entry_options(self._entry).get(
-            CONF_EXERCISE_INTERVAL_DAYS, DEFAULT_EXERCISE_INTERVAL_DAYS
+        interval_days = safe_int_option(
+            entry_options(self._entry),
+            CONF_EXERCISE_INTERVAL_DAYS,
+            DEFAULT_EXERCISE_INTERVAL_DAYS,
+            min_value=0,
         )
-        if interval_days is None or interval_days <= 0:
+        if interval_days <= 0:
             return False
         record = self._devices.get(device_id)
         if record is None:
@@ -218,21 +243,30 @@ class ReadinessTracker:
         ts = time.time() if now is None else float(now)
         record = self._devices.get(device_id)
         if record is None:
-            baseline = float(current_run_time) if current_run_time is not None else 0.0
+            baseline = float(current_run_time) if current_run_time is not None else None
             self._devices[device_id] = {
                 "last_exercise_ts": ts,
                 "last_run_time": current_run_time,
                 "service_baseline_hours": baseline,
             }
         else:
+            prev_run_time = record.get("last_run_time")
+            usable_run_time = (
+                None
+                if (
+                    current_run_time is not None
+                    and current_run_time == 0.0
+                    and prev_run_time is not None
+                    and prev_run_time > 0.0
+                )
+                else current_run_time
+            )
             effective_run_time = (
-                current_run_time
-                if current_run_time is not None
-                else record.get("last_run_time")
+                usable_run_time if usable_run_time is not None else prev_run_time
             )
             record["service_baseline_hours"] = (
-                float(effective_run_time) if effective_run_time is not None else 0.0
+                float(effective_run_time) if effective_run_time is not None else None
             )
-            if current_run_time is not None:
-                record["last_run_time"] = current_run_time
+            if usable_run_time is not None:
+                record["last_run_time"] = usable_run_time
         await self._async_save()

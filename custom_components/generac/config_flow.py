@@ -22,7 +22,6 @@ is abandoned.
 """
 import asyncio
 import logging
-import math
 import time
 
 import aiohttp
@@ -56,8 +55,16 @@ from .const import DEFAULT_SCAN_INTERVAL
 from .const import DOMAIN
 from .utils import async_client_session
 from .utils import entry_options
+from .utils import safe_float
+from .utils import safe_int_option
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
+
+_MIN_SCAN_INTERVAL_SECONDS = 10
+_MAX_FLOAT_OPTION_VALUE = 1000.0
+_SCAN_INTERVAL_VALIDATOR = vol.All(
+    vol.Coerce(int), vol.Range(min=_MIN_SCAN_INTERVAL_SECONDS)
+)
 
 # Where the one-time code comes from, keyed by the factor that
 # GeneracLoginFlow detected. Fills the {method} placeholder in the MFA
@@ -256,13 +263,21 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         default_email = entry.data.get(CONF_USERNAME, "") if entry else ""
         default_scan_interval = (
-            entry_options(entry).get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            safe_int_option(
+                entry_options(entry),
+                CONF_SCAN_INTERVAL,
+                DEFAULT_SCAN_INTERVAL,
+                min_value=_MIN_SCAN_INTERVAL_SECONDS,
+            )
             if entry
             else DEFAULT_SCAN_INTERVAL
         )
         default_active_scan_interval = (
-            entry_options(entry).get(
-                CONF_ACTIVE_SCAN_INTERVAL, DEFAULT_ACTIVE_SCAN_INTERVAL
+            safe_int_option(
+                entry_options(entry),
+                CONF_ACTIVE_SCAN_INTERVAL,
+                DEFAULT_ACTIVE_SCAN_INTERVAL,
+                min_value=_MIN_SCAN_INTERVAL_SECONDS,
             )
             if entry
             else DEFAULT_ACTIVE_SCAN_INTERVAL
@@ -275,10 +290,10 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_PASSWORD): str,
                     vol.Required(
                         CONF_SCAN_INTERVAL, default=default_scan_interval
-                    ): int,
+                    ): _SCAN_INTERVAL_VALIDATOR,
                     vol.Required(
                         CONF_ACTIVE_SCAN_INTERVAL, default=default_active_scan_interval
-                    ): int,
+                    ): _SCAN_INTERVAL_VALIDATOR,
                     vol.Optional(
                         CONF_REMEMBER_PASSWORD,
                         default=bool(entry and entry.data.get(CONF_PASSWORD)),
@@ -486,12 +501,20 @@ class GeneracFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
 def _option_validator(key: str, option_type: type):
     """Build a Voluptuous validator for an integration option."""
+    if key in (CONF_SCAN_INTERVAL, CONF_ACTIVE_SCAN_INTERVAL):
+        return _SCAN_INTERVAL_VALIDATOR
     if key == CONF_FUEL_BURN_RATE:
-        return vol.All(vol.Coerce(float), vol.Range(min=0.0, min_included=False))
+        return vol.All(
+            vol.Coerce(float),
+            vol.Range(min=0.0, max=_MAX_FLOAT_OPTION_VALUE, min_included=False),
+        )
     if option_type is float:
-        return vol.All(vol.Coerce(float), vol.Range(min=0.0))
+        return vol.All(
+            vol.Coerce(float),
+            vol.Range(min=0.0, max=_MAX_FLOAT_OPTION_VALUE),
+        )
     if key in (CONF_SERVICE_INTERVAL_HOURS, CONF_EXERCISE_INTERVAL_DAYS):
-        return vol.All(int, vol.Range(min=0))
+        return vol.All(vol.Coerce(int), vol.Range(min=0))
     return option_type
 
 
@@ -504,16 +527,30 @@ class GeneracOptionsFlowHandler(config_entries.OptionsFlow):
     @staticmethod
     def _option_default(key: str, opt: dict, current: dict):
         """Return a safe form default for an option key."""
-        default = current.get(key, opt["default"])
+        if key in (CONF_SCAN_INTERVAL, CONF_ACTIVE_SCAN_INTERVAL):
+            return safe_int_option(
+                current, key, opt["default"], min_value=_MIN_SCAN_INTERVAL_SECONDS
+            )
+        if key in (CONF_SERVICE_INTERVAL_HOURS, CONF_EXERCISE_INTERVAL_DAYS):
+            return safe_int_option(current, key, opt["default"], min_value=0)
         if key == CONF_FUEL_BURN_RATE:
-            if isinstance(default, bool):
-                return DEFAULT_FUEL_BURN_RATE
-            try:
-                rate = float(default)
-            except (TypeError, ValueError):
-                return DEFAULT_FUEL_BURN_RATE
-            return rate if math.isfinite(rate) and rate > 0 else DEFAULT_FUEL_BURN_RATE
-        return default
+            rate = safe_float(current.get(key, opt["default"]), key)
+            return (
+                rate
+                if rate is not None and 0.0 < rate <= _MAX_FLOAT_OPTION_VALUE
+                else DEFAULT_FUEL_BURN_RATE
+            )
+        if opt["type"] is float:
+            val = safe_float(current.get(key, opt["default"]), key)
+            return (
+                val
+                if val is not None and 0.0 <= val <= _MAX_FLOAT_OPTION_VALUE
+                else opt["default"]
+            )
+        if opt["type"] is bool:
+            val = current.get(key, opt["default"])
+            return val if isinstance(val, bool) else opt["default"]
+        return current.get(key, opt["default"])
 
     async def async_step_init(self, user_input=None):  # pylint: disable=unused-argument
         return await self.async_step_user()
